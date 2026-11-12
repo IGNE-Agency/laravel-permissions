@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Igne\Permissions;
 
 use Igne\Permissions\Contracts\FiltersCasesPerSpace;
+use Igne\Permissions\Contracts\HasExclusiveAccess;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Contracts\SpaceEnum;
@@ -276,6 +277,29 @@ final class PermissionRegistry
     public function actionsOf(string $type): array
     {
         return is_a($type, UsesActions::class, true) ? $type::actions() : [];
+    }
+
+    /**
+     * The spaces whose access permissions exclude each other, collected from the registered space
+     * enums that implement {@see HasExclusiveAccess}.
+     *
+     * @return list<SpaceEnum>
+     */
+    public function exclusiveSpaces(): array
+    {
+        $spaces = [];
+
+        foreach ($this->spaces() as $space) {
+            if (! $space instanceof HasExclusiveAccess) {
+                continue;
+            }
+
+            foreach ($space::exclusiveAccessSpaces() as $exclusive) {
+                $spaces[$exclusive::class.'::'.$exclusive->name] = $exclusive;
+            }
+        }
+
+        return array_values($spaces);
     }
 
     /**
