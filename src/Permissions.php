@@ -7,7 +7,6 @@ namespace Igne\Permissions;
 use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Contracts\SpaceEnum;
 use Igne\Permissions\Contracts\UsesSpaces;
-use Igne\Permissions\Exceptions\PermissionException;
 
 /**
  * Entry point of the chain behind the permissions() helper.
@@ -23,6 +22,12 @@ final class Permissions
      */
     public const string ACCESS = 'access';
 
+    /**
+     * The space segment of a name built without in() for a {@see UsesSpaces} enum. The package's
+     * Gate hook replaces it with the checked user's own space; see {@see PermissionSpaceResolver}.
+     */
+    public const string SPACE_PLACEHOLDER = '{space}';
+
     public function __construct(private readonly PermissionRegistry $registry) {}
 
     /**
@@ -36,14 +41,15 @@ final class Permissions
     }
 
     /**
-     * Select a permission of an enum that does not use spaces.
+     * Select a permission without naming a space.
+     *
+     * For an enum that does not use spaces this is the only form. For a {@see UsesSpaces} enum the
+     * name carries {@see self::SPACE_PLACEHOLDER} where the space would be, so it is only for
+     * checks through Laravel's Gate, which resolves the placeholder from the checked user. Seeding,
+     * granting and Spatie's direct model methods need in($space)->for().
      */
     public function for(PermissionEnum $permission): PermissionSelection
     {
-        if ($permission instanceof UsesSpaces) {
-            throw PermissionException::invalidSelection(sprintf('[%s] uses spaces; call permissions()->in($space)->for() instead', $permission::class));
-        }
-
         $this->registry->assertRegistered($permission);
 
         return new PermissionSelection($this->registry, $permission, null);

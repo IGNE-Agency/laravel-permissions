@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Igne\Permissions\Exceptions;
 
+use Igne\Permissions\Contracts\HasPermissionSpace;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
 use LogicException;
@@ -56,6 +57,15 @@ final class PermissionException extends LogicException
     public static function invalidConfig(string $key, string $detail): self
     {
         return new self(sprintf('Invalid permissions config [%s]: %s.', $key, $detail));
+    }
+
+    public static function missingPermissionSpace(object $user): self
+    {
+        return new self(sprintf(
+            'Cannot check a permission built without in() for [%s]: the user model must implement %s, or the name must be built with in($space).',
+            $user::class,
+            HasPermissionSpace::class,
+        ));
     }
 
     private static function describe(PermissionEnum $permission): string

@@ -12,6 +12,7 @@ permissions()->in($space)->for($case)->action(ReportAction::RUN);               
 permissions()->in($space)->for($case)->any(PermissionAction::VIEW, PermissionAction::UPDATE); // list<string>
 permissions()->in($space)->for(GuardPermission::SETUP_TWO_FACTOR)->name();            // an enum without actions
 permissions()->for(FeaturePermission::EXPORT_REPORTS)->name();                        // an enum without spaces
+permissions()->for(ResourcePermission::DOCUMENT)->view();                             // '{space}:document:view', for Gate checks only
 permissions()->all();                                                                 // every name, every space
 permissions()->in($space)->all();                                                     // every name in one space, access last
 ```
@@ -20,7 +21,7 @@ permissions()->in($space)->all();                                               
 |------|---------|-------|
 | `in(SpaceEnum\|array $space)` | `SpaceScope` | One space for names; several only for whole-space lists |
 | `->access()` | `string` | Exactly one space |
-| `->for(PermissionEnum $case)` | `PermissionSelection` | After `in()`: a `UsesSpaces` enum. Without `in()`: an enum that does not use spaces |
+| `->for(PermissionEnum $case)` | `PermissionSelection` | After `in()`: a `UsesSpaces` enum. Without `in()`: any registered enum; a `UsesSpaces` enum then renders the `{space}` placeholder |
 | `->viewAny()` … `->destroy()` | `string` | The enum lists that `PermissionAction` case |
 | `->action(PermissionActionEnum $action)` | `string` | The enum lists that action |
 | `->any(PermissionActionEnum ...$actions)` | `list<string>` | The enum lists every given action |
@@ -28,6 +29,10 @@ permissions()->in($space)->all();                                               
 | `->all()` | `list<string>` | On `permissions()`: nothing. On `in()`: exactly one space |
 
 Every terminal returns a plain `string` or a `list<string>`. Laravel's Gate turns objects it does not know into arrays without an error, so nothing else leaves the chain.
+
+## The space placeholder
+
+`permissions()->for($case)` without `in()` on a space-using enum renders `Permissions::SPACE_PLACEHOLDER`, the literal `{space}`, in the space position: `'{space}:document:view'`, or `'app:{space}:document:view'` with a global prefix. The placeholder is inserted as is, never normalized. It is only for checks through Laravel's Gate, where the package's hook replaces it with the checked user's space; see [Checking permissions](checking-permissions.md). Lists never carry it: `all()`, `in($space)->all()` and the list builders always render a concrete space, so seeding output is unchanged.
 
 ## Using the names
 
@@ -41,12 +46,12 @@ $user->givePermissionTo(permissions()->in(AppSpace::CUSTOMER_PORTAL)->access());
 Route::middleware('permission:'.permissions()->in(AppSpace::ADMIN_PORTAL)->for(GuardPermission::ACCESS_API_DOCS)->name());
 ```
 
-In a policy that serves several spaces, resolve the space first and pass the action as an enum case:
+In a policy, leave the space out: the Gate takes it from the user it is checking, through the `HasPermissionSpace` contract on the user model. Keep `in($space)` where the space is fixed or where the name goes to one of Spatie's direct methods. [Checking permissions](checking-permissions.md) covers every entry point.
 
 ```php
 public function update(User $user, Document $document): bool
 {
-    return $user->can(permissions()->in($this->space($user))->for(ResourcePermission::DOCUMENT)->update());
+    return $user->can(permissions()->for(ResourcePermission::DOCUMENT)->update());
 }
 ```
 
@@ -61,7 +66,6 @@ Every failure is an `Igne\Permissions\Exceptions\PermissionException`, a `LogicE
 | `->name()` on an enum with actions | The enum needs an action to make a full name. |
 | `->access()`, `->for()` or `->all()` after `in([...])` with several spaces | Names belong to one space; several spaces are for whole-space lists. |
 | `in([])` | A scope needs a space. |
-| `permissions()->for()` with a `UsesSpaces` enum | Its names carry a space prefix; call `in($space)->for()`. |
 | `in($space)->for()` with an enum that does not use spaces | The space would be ignored; call `permissions()->for()`. |
 | `->for()` with an enum missing from `permissions.types` | A name for an unregistered enum would not appear in `all()`. |
 | `permissions()` with an unknown `normalizer` or a `types` entry that is not a permission enum | The config is wrong. |

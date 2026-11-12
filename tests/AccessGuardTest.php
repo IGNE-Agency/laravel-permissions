@@ -13,46 +13,12 @@ use Igne\Permissions\Tests\Fixtures\TestPermissionName;
 use Igne\Permissions\Tests\Fixtures\TestRoleName;
 use Igne\Permissions\Tests\Fixtures\TestSettingPermission;
 use Igne\Permissions\Tests\Fixtures\TestSpace;
-use Igne\Permissions\Tests\Fixtures\TestUser;
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\ServiceProvider;
-use Orchestra\Testbench\Attributes\WithConfig;
-use RuntimeException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
-use Spatie\Permission\PermissionServiceProvider;
 
-#[WithConfig('database.default', 'testing')]
-#[WithConfig('cache.default', 'array')]
-#[WithConfig('auth.providers.users.model', TestUser::class)]
-final class AccessGuardTest extends PermissionTestCase
+final class AccessGuardTest extends SpatieTestCase
 {
-    /**
-     * @param  Application  $app
-     * @return list<class-string<ServiceProvider>>
-     */
-    protected function getPackageProviders($app): array
-    {
-        return [...parent::getPackageProviders($app), PermissionServiceProvider::class];
-    }
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->loadLaravelMigrations();
-        $this->migrateSpatieTables();
-
-        foreach (permissions()->all() as $name) {
-            Permission::create(['name' => $name, 'guard_name' => 'web']);
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-    }
-
     public function test_the_guard_resolves_from_the_container(): void
     {
         $this->assertInstanceOf(AccessGuard::class, app(AccessGuard::class));
@@ -209,31 +175,5 @@ final class AccessGuardTest extends PermissionTestCase
     private function guard(): AccessGuard
     {
         return app(AccessGuard::class);
-    }
-
-    private function user(string ...$permissions): TestUser
-    {
-        $user = TestUser::create([
-            'name' => 'Test user',
-            'email' => uniqid('user', true).'@example.test',
-            'password' => 'secret',
-        ]);
-
-        if ($permissions !== []) {
-            $user->givePermissionTo(...$permissions);
-        }
-
-        return $user;
-    }
-
-    private function migrateSpatieTables(): void
-    {
-        $migration = require dirname(__DIR__).'/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub';
-
-        if (! $migration instanceof Migration || ! method_exists($migration, 'up')) {
-            throw new RuntimeException('The Spatie migration stub did not return a migration with an up() method.');
-        }
-
-        $migration->up();
     }
 }

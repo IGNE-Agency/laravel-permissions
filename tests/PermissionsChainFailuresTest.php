@@ -83,14 +83,6 @@ final class PermissionsChainFailuresTest extends PermissionTestCase
         permissions()->in([]);
     }
 
-    public function test_bare_for_on_a_space_using_enum_throws(): void
-    {
-        $this->expectException(PermissionException::class);
-        $this->expectExceptionMessage('uses spaces; call permissions()->in($space)->for() instead');
-
-        permissions()->for(TestResourcePermission::ARTICLE);
-    }
-
     public function test_in_for_on_an_enum_without_spaces_throws(): void
     {
         Config::set('permissions.types', [TestSettingPermission::class]);

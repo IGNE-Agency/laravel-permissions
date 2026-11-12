@@ -136,7 +136,8 @@ final class PermissionRegistry
 
     /**
      * Render one name. The space prefix and the action are rendered as given; the group only when
-     * the enum implements {@see UsesGroup}.
+     * the enum implements {@see UsesGroup}. A space-using enum without a space renders the
+     * {@see Permissions::SPACE_PLACEHOLDER} placeholder in the space position.
      */
     public function name(PermissionEnum $permission, ?PermissionActionEnum $action, ?SpaceEnum $space): string
     {
@@ -148,7 +149,25 @@ final class PermissionRegistry
             prefix: $this->prefix,
             separator: $this->separator,
             normalizer: $this->normalizer,
+            spacePlaceholder: $space === null && $permission instanceof UsesSpaces,
         );
+    }
+
+    /**
+     * Whether a name was built without a space and still carries the placeholder.
+     */
+    public function hasSpacePlaceholder(string $name): bool
+    {
+        return str_contains($name, Permissions::SPACE_PLACEHOLDER);
+    }
+
+    /**
+     * The concrete name for a space: the placeholder becomes the space prefix, normalized like
+     * every other segment, so the result is byte-identical to the name in($space) renders and seeds.
+     */
+    public function resolveSpacePlaceholder(string $name, SpaceEnum $space): string
+    {
+        return str_replace(Permissions::SPACE_PLACEHOLDER, $this->normalizer->__invoke($space->spacePrefix()), $name);
     }
 
     /**

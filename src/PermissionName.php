@@ -25,6 +25,9 @@ final readonly class PermissionName
         return $this->value;
     }
 
+    /**
+     * @param  bool  $spacePlaceholder  Without a space, render {@see Permissions::SPACE_PLACEHOLDER} in its position, never normalized.
+     */
     public static function make(
         PermissionEnum|string|null $permission = null,
         ?PermissionActionEnum $action = null,
@@ -33,27 +36,29 @@ final readonly class PermissionName
         ?string $prefix = null,
         string $separator = ':',
         ?SegmentNormalizer $normalizer = null,
+        bool $spacePlaceholder = false,
     ): self {
         $normalize = $normalizer ?? SegmentNormalizer::default();
 
         $segments = [
-            $prefix,
-            $space?->spacePrefix(),
-            $group,
-            $permission instanceof PermissionEnum ? (string) $permission->value : $permission,
-            $action === null ? null : (string) $action->value,
+            self::normalized($prefix, $normalize),
+            $space === null
+                ? ($spacePlaceholder ? Permissions::SPACE_PLACEHOLDER : null)
+                : self::normalized($space->spacePrefix(), $normalize),
+            self::normalized($group, $normalize),
+            self::normalized($permission instanceof PermissionEnum ? (string) $permission->value : $permission, $normalize),
+            self::normalized($action === null ? null : (string) $action->value, $normalize),
         ];
 
-        $normalized = [];
+        return new self(implode($separator, array_filter($segments, static fn (?string $segment): bool => $segment !== null)));
+    }
 
-        foreach ($segments as $segment) {
-            if ($segment === null || $segment === '') {
-                continue;
-            }
-
-            $normalized[] = $normalize($segment);
+    private static function normalized(?string $segment, SegmentNormalizer $normalize): ?string
+    {
+        if ($segment === null || $segment === '') {
+            return null;
         }
 
-        return new self(implode($separator, $normalized));
+        return $normalize($segment);
     }
 }

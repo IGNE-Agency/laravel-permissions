@@ -84,6 +84,57 @@ final class PermissionsChainTest extends PermissionTestCase
         $this->assertSame('beta', permissions()->for(TestSettingPermission::BETA)->name());
     }
 
+    public function test_bare_for_on_a_space_using_enum_renders_the_space_placeholder(): void
+    {
+        $this->assertSame('{space}', Permissions::SPACE_PLACEHOLDER);
+        $this->assertSame('{space}:article:view', permissions()->for(TestResourcePermission::ARTICLE)->view());
+        $this->assertSame('{space}:manageUsers', permissions()->for(TestGuardPermission::MANAGE_USERS)->name());
+        $this->assertSame(
+            ['{space}:article:view', '{space}:article:create'],
+            permissions()->for(TestResourcePermission::ARTICLE)->any(PermissionAction::VIEW, PermissionAction::CREATE),
+        );
+    }
+
+    public function test_the_placeholder_sits_after_the_global_prefix(): void
+    {
+        Config::set('permissions.prefix', 'app');
+
+        $this->assertSame('app:{space}:article:view', permissions()->for(TestResourcePermission::ARTICLE)->view());
+        $this->assertSame('app:backend:article:view', permissions()->in(TestSpace::ADMIN)->for(TestResourcePermission::ARTICLE)->view());
+    }
+
+    public function test_the_placeholder_form_differs_from_in_only_in_the_space_segment(): void
+    {
+        $placeholder = permissions()->for(TestResourcePermission::ARTICLE)->view();
+
+        $this->assertSame(
+            permissions()->in(TestSpace::ADMIN)->for(TestResourcePermission::ARTICLE)->view(),
+            str_replace(Permissions::SPACE_PLACEHOLDER, TestSpace::ADMIN->spacePrefix(), $placeholder),
+        );
+        $this->assertSame(
+            permissions()->in(TestSpace::PORTAL)->for(TestResourcePermission::ARTICLE)->view(),
+            str_replace(Permissions::SPACE_PLACEHOLDER, TestSpace::PORTAL->spacePrefix(), $placeholder),
+        );
+    }
+
+    public function test_lists_never_carry_the_placeholder(): void
+    {
+        $lists = [
+            permissions()->all(),
+            permissions()->in(TestSpace::ADMIN)->all(),
+            permissions()->in([TestSpace::ADMIN, TestSpace::PORTAL])->withAccess()->names(),
+            permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::ARTICLE)->names(),
+        ];
+
+        foreach ($lists as $names) {
+            $this->assertNotEmpty($names);
+
+            foreach ($names as $name) {
+                $this->assertStringNotContainsString(Permissions::SPACE_PLACEHOLDER, $name);
+            }
+        }
+    }
+
     public function test_pascal_and_multi_word_values_are_normalized(): void
     {
         $this->assertSame('backend:blogPost:view', permissions()->in(TestSpace::ADMIN)->for(TestResourcePermission::BLOG_POST)->view());

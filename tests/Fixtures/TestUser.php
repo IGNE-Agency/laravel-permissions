@@ -4,16 +4,23 @@ declare(strict_types=1);
 
 namespace Igne\Permissions\Tests\Fixtures;
 
+use Igne\Permissions\Contracts\HasPermissionSpace;
+use Igne\Permissions\Contracts\SpaceEnum;
 use Illuminate\Foundation\Auth\User;
+use LogicException;
+use Spatie\Permission\Contracts\Permission;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
- * A Spatie-enabled user. Names listed in $revokedPermissions are denied by can() whatever the
- * roles say, standing in for an app's per-user revocations.
+ * A Spatie-enabled user with a settable space. Names listed in $revokedPermissions are denied by
+ * hasPermissionTo() whatever the roles say, wrapping Spatie's method through the trait alias the
+ * way an app with per-user revocations does, so every check through the Gate honours them.
  */
-final class TestUser extends User
+final class TestUser extends User implements HasPermissionSpace
 {
-    use HasRoles;
+    use HasRoles {
+        hasPermissionTo as protected spatieHasPermissionTo;
+    }
 
     protected $table = 'users';
 
@@ -24,16 +31,26 @@ final class TestUser extends User
      */
     public array $revokedPermissions = [];
 
-    /**
-     * @param  iterable<string>|\BackedEnum|string  $abilities
-     * @param  mixed  $arguments
-     */
-    public function can($abilities, $arguments = []): bool
+    public ?SpaceEnum $space = null;
+
+    public function permissionSpace(): SpaceEnum
     {
-        if (is_string($abilities) && in_array($abilities, $this->revokedPermissions, true)) {
+        if ($this->space === null) {
+            throw new LogicException('The test did not give this user a space.');
+        }
+
+        return $this->space;
+    }
+
+    /**
+     * @param  string|int|Permission|\BackedEnum  $permission
+     */
+    public function hasPermissionTo($permission, ?string $guardName = null): bool
+    {
+        if (is_string($permission) && in_array($permission, $this->revokedPermissions, true)) {
             return false;
         }
 
-        return parent::can($abilities, $arguments);
+        return $this->spatieHasPermissionTo($permission, $guardName);
     }
 }
