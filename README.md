@@ -23,7 +23,7 @@ See [docs/installation.md](docs/installation.md) for the config keys.
 permissions()->in(AppSpace::ADMIN_PORTAL)->access();                                  // 'nova:access'
 permissions()->in(AppSpace::ADMIN_PORTAL)->for(ResourcePermission::DOCUMENT)->view(); // 'nova:document:view'
 permissions()->in(AppSpace::ADMIN_PORTAL)->for(ResourcePermission::DOCUMENT)->any(PermissionAction::VIEW, PermissionAction::UPDATE);
-permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->except(ResourcePermission::INVOICE)->all();
+permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->except(ResourcePermission::INVOICE)->names();
 permissions()->all();
 ```
 

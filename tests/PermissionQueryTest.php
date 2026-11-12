@@ -25,7 +25,7 @@ final class PermissionQueryTest extends PermissionTestCase
     {
         $this->assertSame(
             ['backend:manageAccount'],
-            permissions()->in(TestSpace::ADMIN)->only(TestGuardPermission::MANAGE_ACCOUNT)->all(),
+            permissions()->in(TestSpace::ADMIN)->only(TestGuardPermission::MANAGE_ACCOUNT)->names(),
         );
     }
 
@@ -33,7 +33,7 @@ final class PermissionQueryTest extends PermissionTestCase
     {
         $this->assertSame(
             ['backend:manageUsers', 'backend:manageAccount'],
-            permissions()->in(TestSpace::ADMIN)->only([TestGuardPermission::MANAGE_USERS, TestGuardPermission::MANAGE_ACCOUNT])->all(),
+            permissions()->in(TestSpace::ADMIN)->only([TestGuardPermission::MANAGE_USERS, TestGuardPermission::MANAGE_ACCOUNT])->names(),
         );
     }
 
@@ -44,7 +44,7 @@ final class PermissionQueryTest extends PermissionTestCase
             permissions()->in(TestSpace::ADMIN)
                 ->only(TestGuardPermission::MANAGE_USERS)
                 ->only([TestGuardPermission::MANAGE_ACCOUNT, TestGuardPermission::RUN_REPORTS])
-                ->all(),
+                ->names(),
         );
     }
 
@@ -52,7 +52,7 @@ final class PermissionQueryTest extends PermissionTestCase
     {
         $this->assertSame(
             ['backend:manageUsers', 'backend:runReports'],
-            permissions()->in(TestSpace::ADMIN)->except(TestGuardPermission::MANAGE_ACCOUNT)->all(),
+            permissions()->in(TestSpace::ADMIN)->except(TestGuardPermission::MANAGE_ACCOUNT)->names(),
         );
     }
 
@@ -60,7 +60,7 @@ final class PermissionQueryTest extends PermissionTestCase
     {
         $this->assertSame(
             ['backend:user:viewAny', 'backend:user:view'],
-            permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->all(),
+            permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names(),
         );
     }
 
@@ -68,13 +68,13 @@ final class PermissionQueryTest extends PermissionTestCase
     {
         $this->assertSame(
             ['backend:user:view'],
-            permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER, PermissionAction::VIEW)->all(),
+            permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER, PermissionAction::VIEW)->names(),
         );
     }
 
     public function test_only_a_case_without_actions_expands_every_action(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER)->all();
+        $names = permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER)->names();
 
         $this->assertCount(count(PermissionAction::cases()), $names);
         $this->assertContains('backend:user:viewAny', $names);
@@ -91,12 +91,12 @@ final class PermissionQueryTest extends PermissionTestCase
         ], permissions()->in(TestSpace::ADMIN)
             ->only(TestResourcePermission::PROFILE, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])
             ->only(TestResourcePermission::USER, [PermissionAction::VIEW, PermissionAction::DELETE])
-            ->all());
+            ->names());
     }
 
     public function test_only_an_action_selects_it_across_every_case(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->only(PermissionAction::VIEW)->all();
+        $names = permissions()->in(TestSpace::ADMIN)->only(PermissionAction::VIEW)->names();
 
         foreach ($names as $name) {
             $this->assertStringEndsWith(':view', $name);
@@ -107,7 +107,7 @@ final class PermissionQueryTest extends PermissionTestCase
 
     public function test_except_actions_removes_them_across_every_case(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->except([PermissionAction::UPDATE, PermissionAction::DELETE])->all();
+        $names = permissions()->in(TestSpace::ADMIN)->except([PermissionAction::UPDATE, PermissionAction::DELETE])->names();
 
         foreach ($names as $name) {
             $this->assertStringNotContainsString(':update', $name);
@@ -121,7 +121,7 @@ final class PermissionQueryTest extends PermissionTestCase
     {
         $names = permissions()->in(TestSpace::ADMIN)
             ->except(TestResourcePermission::ARTICLE, [PermissionAction::VIEW, PermissionAction::DELETE])
-            ->all();
+            ->names();
 
         $this->assertNotContains('backend:article:view', $names);
         $this->assertNotContains('backend:article:delete', $names);
@@ -134,7 +134,7 @@ final class PermissionQueryTest extends PermissionTestCase
         $names = permissions()->in(TestSpace::ADMIN)
             ->only(PermissionAction::VIEW)
             ->except(TestResourcePermission::ARTICLE, PermissionAction::VIEW)
-            ->all();
+            ->names();
 
         $this->assertNotContains('backend:article:view', $names);
         $this->assertContains('backend:user:view', $names);
@@ -143,7 +143,7 @@ final class PermissionQueryTest extends PermissionTestCase
 
     public function test_the_default_actions_are_the_package_action_set(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::ARTICLE)->all();
+        $names = permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::ARTICLE)->names();
 
         $this->assertCount(count(PermissionAction::cases()), $names);
         $this->assertContains('backend:article:viewAny', $names);
@@ -156,11 +156,11 @@ final class PermissionQueryTest extends PermissionTestCase
 
         $this->assertSame(
             ['portal:report:read', 'portal:report:write'],
-            permissions()->in(TestSpace::PORTAL)->only(TestReportPermission::REPORT)->all(),
+            permissions()->in(TestSpace::PORTAL)->only(TestReportPermission::REPORT)->names(),
         );
         $this->assertSame(
             ['guest:report:read', 'guest:report:write'],
-            permissions()->in(TestSpace::GUEST)->only(TestReportPermission::REPORT)->all(),
+            permissions()->in(TestSpace::GUEST)->only(TestReportPermission::REPORT)->names(),
         );
     }
 
@@ -170,7 +170,7 @@ final class PermissionQueryTest extends PermissionTestCase
 
         $this->assertSame(
             ['portal:leadSales:phone:update'],
-            permissions()->in(TestSpace::PORTAL)->only(TestLeadPermission::PHONE, PermissionAction::UPDATE)->all(),
+            permissions()->in(TestSpace::PORTAL)->only(TestLeadPermission::PHONE, PermissionAction::UPDATE)->names(),
         );
     }
 
@@ -178,21 +178,21 @@ final class PermissionQueryTest extends PermissionTestCase
     {
         Config::set('permissions.types', [TestSettingPermission::class]);
 
-        $this->assertSame(['darkMode'], permissions()->in(TestSpace::ADMIN)->only(TestSettingPermission::DARK_MODE)->all());
-        $this->assertSame(['beta'], permissions()->in(TestSpace::GUEST)->except(TestSettingPermission::DARK_MODE)->all());
+        $this->assertSame(['darkMode'], permissions()->in(TestSpace::ADMIN)->only(TestSettingPermission::DARK_MODE)->names());
+        $this->assertSame(['beta'], permissions()->in(TestSpace::GUEST)->except(TestSettingPermission::DARK_MODE)->names());
     }
 
     public function test_a_space_where_the_enum_has_no_cases_yields_nothing(): void
     {
-        $this->assertSame([], permissions()->in(TestSpace::PORTAL)->only(PermissionAction::VIEW)->all());
-        $this->assertSame([], permissions()->in(TestSpace::GUEST)->only(TestResourcePermission::ARTICLE)->all());
+        $this->assertSame([], permissions()->in(TestSpace::PORTAL)->only(PermissionAction::VIEW)->names());
+        $this->assertSame([], permissions()->in(TestSpace::GUEST)->only(TestResourcePermission::ARTICLE)->names());
     }
 
     public function test_only_a_case_not_allowed_in_the_space_yields_nothing_not_everything(): void
     {
         // MANAGE_USERS is not allowed in PORTAL, but the enum does have MANAGE_ACCOUNT there.
         // only() must still restrict to the (empty) selection, never fall back to the whole enum.
-        $this->assertSame([], permissions()->in(TestSpace::PORTAL)->only(TestGuardPermission::MANAGE_USERS)->all());
+        $this->assertSame([], permissions()->in(TestSpace::PORTAL)->only(TestGuardPermission::MANAGE_USERS)->names());
     }
 
     public function test_the_query_is_iterable_and_countable(): void

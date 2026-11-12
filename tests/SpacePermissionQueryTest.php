@@ -19,7 +19,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
 {
     public function test_with_access_alone_returns_the_whole_space_including_access(): void
     {
-        $whole = permissions()->in(TestSpace::ADMIN)->withAccess()->all();
+        $whole = permissions()->in(TestSpace::ADMIN)->withAccess()->names();
 
         $this->assertSame(permissions()->in(TestSpace::ADMIN)->all(), $whole);
         $this->assertContains('backend:access', $whole);
@@ -32,7 +32,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
         $names = permissions()->in(TestSpace::ADMIN)
             ->withAccess()
             ->except(TestResourcePermission::ARTICLE, [PermissionAction::VIEW, PermissionAction::DELETE])
-            ->all();
+            ->names();
 
         $this->assertNotContains('backend:article:view', $names);
         $this->assertNotContains('backend:article:delete', $names);
@@ -50,7 +50,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
                 TestGuardPermission::MANAGE_ACCOUNT,
                 [TestResourcePermission::ARTICLE, [PermissionAction::VIEW]],
             ])
-            ->all();
+            ->names();
 
         $this->assertNotContains('backend:manageAccount', $names);
         $this->assertNotContains('backend:article:view', $names);
@@ -67,7 +67,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
                 TestGuardPermission::MANAGE_USERS,
                 [TestResourcePermission::USER, [PermissionAction::VIEW_ANY, PermissionAction::VIEW]],
             ])
-            ->all();
+            ->names();
 
         $this->assertSame([
             'backend:manageUsers',
@@ -81,7 +81,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
     {
         $this->assertSame(
             ['backend:user:view', 'backend:access'],
-            permissions()->in(TestSpace::ADMIN)->withAccess()->only([[TestResourcePermission::USER, PermissionAction::VIEW]])->all(),
+            permissions()->in(TestSpace::ADMIN)->withAccess()->only([[TestResourcePermission::USER, PermissionAction::VIEW]])->names(),
         );
     }
 
@@ -89,7 +89,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
     {
         $names = permissions()->in(TestSpace::ADMIN)->withAccess();
 
-        $this->assertSame(['backend:manageUsers', 'backend:access'], $names->only(TestGuardPermission::MANAGE_USERS)->all());
+        $this->assertSame(['backend:manageUsers', 'backend:access'], $names->only(TestGuardPermission::MANAGE_USERS)->names());
     }
 
     public function test_chained_only_then_except_compose(): void
@@ -98,7 +98,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
             ->withAccess()
             ->only(TestResourcePermission::USER)
             ->except(TestResourcePermission::USER, [PermissionAction::DELETE])
-            ->all();
+            ->names();
 
         $this->assertContains('backend:user:view', $names);
         $this->assertNotContains('backend:user:delete', $names);
@@ -112,7 +112,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
             ->withAccess()
             ->except(TestResourcePermission::ARTICLE)
             ->only([[TestResourcePermission::ARTICLE, [PermissionAction::VIEW]]])
-            ->all();
+            ->names();
 
         // The whole Article resource is excluded, then only its view action is added back.
         $this->assertContains('backend:article:view', $names);
@@ -130,7 +130,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
             ->withAccess()
             ->except(TestGuardPermission::MANAGE_ACCOUNT) // an unrelated except puts the chain in cap mode
             ->only([[TestResourcePermission::ARTICLE, [PermissionAction::VIEW]]])
-            ->all();
+            ->names();
 
         // Article is capped to view without ever being excepted.
         $this->assertContains('backend:article:view', $names);
@@ -148,7 +148,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
         $names = permissions()->in([TestSpace::ADMIN, TestSpace::PORTAL])
             ->withAccess()
             ->except(TestGuardPermission::MANAGE_ACCOUNT)
-            ->all();
+            ->names();
 
         $this->assertContains('backend:access', $names);
         $this->assertContains('portal:access', $names);
@@ -162,7 +162,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
         $names = permissions()->in([TestSpace::ADMIN, TestSpace::PORTAL])
             ->withAccess()
             ->exceptFor(TestSpace::ADMIN, TestGuardPermission::MANAGE_ACCOUNT)
-            ->all();
+            ->names();
 
         $this->assertNotContains('backend:manageAccount', $names);
         $this->assertContains('portal:manageAccount', $names);
@@ -173,7 +173,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
         $names = permissions()->in([TestSpace::ADMIN, TestSpace::PORTAL])
             ->withAccess()
             ->onlyFor(TestSpace::ADMIN, TestGuardPermission::MANAGE_USERS)
-            ->all();
+            ->names();
 
         $this->assertContains('backend:manageUsers', $names);
         $this->assertContains('backend:access', $names);
@@ -188,7 +188,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
 
         $this->assertSame(
             ['portal:leadSales:webForm:viewAny', 'portal:access'],
-            permissions()->in(TestSpace::PORTAL)->withAccess()->only([[TestLeadPermission::WEB_FORM, PermissionAction::VIEW_ANY]])->all(),
+            permissions()->in(TestSpace::PORTAL)->withAccess()->only([[TestLeadPermission::WEB_FORM, PermissionAction::VIEW_ANY]])->names(),
         );
     }
 
@@ -205,7 +205,7 @@ final class SpacePermissionQueryTest extends PermissionTestCase
         $base = permissions()->in(TestSpace::ADMIN)->withAccess();
         $base->only(TestGuardPermission::MANAGE_USERS);
 
-        $this->assertSame(permissions()->in(TestSpace::ADMIN)->all(), $base->all());
+        $this->assertSame(permissions()->in(TestSpace::ADMIN)->all(), $base->names());
     }
 
     public function test_a_bare_action_in_a_list_is_rejected(): void

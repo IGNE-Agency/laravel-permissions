@@ -22,7 +22,7 @@ use Traversable;
  * its cases everywhere.
  *
  * Chained only()/except() calls are additive: each call is unioned into the allow or deny set,
- * never treated as an AND filter.
+ * never treated as an AND filter. names() renders the result.
  *
  * @implements IteratorAggregate<int, string>
  */
@@ -80,9 +80,11 @@ final class PermissionQuery implements Countable, IteratorAggregate
     }
 
     /**
+     * The permission names the query selects, in the enum's own order.
+     *
      * @return list<string>
      */
-    public function all(): array
+    public function names(): array
     {
         $names = $this->baseNames();
 
@@ -99,7 +101,7 @@ final class PermissionQuery implements Countable, IteratorAggregate
 
     public function count(): int
     {
-        return count($this->all());
+        return count($this->names());
     }
 
     /**
@@ -107,7 +109,7 @@ final class PermissionQuery implements Countable, IteratorAggregate
      */
     public function getIterator(): Traversable
     {
-        yield from $this->all();
+        yield from $this->names();
     }
 
     /**

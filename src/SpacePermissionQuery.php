@@ -18,7 +18,7 @@ use Traversable;
  *
  * Where {@see PermissionQuery} filters within a single enum, this query filters across whole
  * spaces, which is what a role definition needs. only()/except() are recorded as an ordered list of
- * operations and replayed per space in all():
+ * operations and replayed per space in names():
  *
  *   - the base set is empty when the first operation is only() ("only these"), otherwise the whole
  *     space ("everything except these");
@@ -117,9 +117,11 @@ final class SpacePermissionQuery implements Countable, IteratorAggregate
     }
 
     /**
+     * The permission names the query selects, space by space in canonical order.
+     *
      * @return list<string>
      */
-    public function all(): array
+    public function names(): array
     {
         $names = [];
 
@@ -132,7 +134,7 @@ final class SpacePermissionQuery implements Countable, IteratorAggregate
 
     public function count(): int
     {
-        return count($this->all());
+        return count($this->names());
     }
 
     /**
@@ -140,12 +142,12 @@ final class SpacePermissionQuery implements Countable, IteratorAggregate
      */
     public function getIterator(): Traversable
     {
-        yield from $this->all();
+        yield from $this->names();
     }
 
     /**
      * Record an operation. The selection's shape is checked here, at the call site; name resolution
-     * waits until all().
+     * waits until names().
      *
      * @param  'only'|'except'  $type
      */
@@ -274,7 +276,7 @@ final class SpacePermissionQuery implements Countable, IteratorAggregate
     {
         return PermissionQuery::for($this->registry, $permission::class, $space)
             ->only($permission, $actions)
-            ->all();
+            ->names();
     }
 
     private function permissionOf(mixed $value): PermissionEnum

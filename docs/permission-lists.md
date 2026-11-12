@@ -2,29 +2,29 @@
 
 The package defines no roles. The list builders only produce lists of permission names; the app decides which roles exist and which list each one gets, in its own seeder.
 
-Two builders cover the two shapes a role definition takes. Both are immutable: every `only()` and `except()` returns a new query, `all()` renders the names, and a query also counts and iterates.
+Two builders cover the two shapes a role definition takes. Both are immutable: every `only()` and `except()` returns a new query, `names()` renders the names, and a query also counts and iterates.
 
 ## One enum: `only()` and `except()`
 
 `permissions()->in($space)->only(...)` and `->except(...)` filter the names of a single enum within one space. The enum is the one the first selected item belongs to.
 
 ```php
-permissions()->in(AppSpace::ADMIN_PORTAL)->only(GuardPermission::SETUP_TWO_FACTOR)->all();
+permissions()->in(AppSpace::ADMIN_PORTAL)->only(GuardPermission::SETUP_TWO_FACTOR)->names();
 // ['nova:setupTwoFactor']
 
-permissions()->in(AppSpace::ADMIN_PORTAL)->only(ResourcePermission::DOCUMENT, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->all();
+permissions()->in(AppSpace::ADMIN_PORTAL)->only(ResourcePermission::DOCUMENT, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names();
 // ['nova:document:viewAny', 'nova:document:view']
 
-permissions()->in(AppSpace::ADMIN_PORTAL)->only(PermissionAction::VIEW)->all();
+permissions()->in(AppSpace::ADMIN_PORTAL)->only(PermissionAction::VIEW)->names();
 // every 'nova:…:view' of the first registered enum that lists view
 
-permissions()->in(AppSpace::ADMIN_PORTAL)->except([PermissionAction::DELETE, PermissionAction::DESTROY])->all();
+permissions()->in(AppSpace::ADMIN_PORTAL)->except([PermissionAction::DELETE, PermissionAction::DESTROY])->names();
 // that enum's names without delete and destroy
 ```
 
 A selection is a permission case, a list of cases of the same enum, an action case, or a list of actions. The optional second argument narrows permission cases to the given actions; without it a case expands to all of its actions.
 
-Chained calls are additive: each `only()` unions its names into the allow-list, each `except()` into the deny-list, and `all()` returns the allow-list minus the deny-list. A case the enum does not offer in the space yields nothing, never the whole enum.
+Chained calls are additive: each `only()` unions its names into the allow-list, each `except()` into the deny-list, and `names()` returns the allow-list minus the deny-list. A case the enum does not offer in the space yields nothing, never the whole enum.
 
 An enum that does not use spaces renders without a prefix, whatever `in()` says.
 
@@ -33,7 +33,7 @@ An enum that does not use spaces renders without a prefix, whatever `in()` says.
 `permissions()->in($space)->withAccess()` builds across every registered enum in the space at once and guarantees the space's `access` permission in the result. Pass a list of spaces to build several at once.
 
 ```php
-permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->all();
+permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->names();
 // every name in the admin portal, access last
 
 permissions()->in(AppSpace::ADMIN_PORTAL)
@@ -42,7 +42,7 @@ permissions()->in(AppSpace::ADMIN_PORTAL)
         RoleManagementPermission::ASSIGN_ROLES,
         [ResourcePermission::INVOICE, [PermissionAction::DELETE, PermissionAction::DESTROY]],
     ])
-    ->all();
+    ->names();
 // everything except assigning roles and destroying invoices
 
 permissions()->in([AppSpace::ADMIN_PORTAL, AppSpace::COMPANY_PORTAL])
@@ -52,7 +52,7 @@ permissions()->in([AppSpace::ADMIN_PORTAL, AppSpace::COMPANY_PORTAL])
         [ResourcePermission::CLIENT_CASE, [PermissionAction::VIEW_ANY, PermissionAction::VIEW]],
     ])
     ->onlyFor(AppSpace::ADMIN_PORTAL, ResourcePermission::DOCUMENT)
-    ->all();
+    ->names();
 ```
 
 A selection is a permission case or a list whose entries are cases or `[permission, actions]` pairs. A pair's actions are one action case or a list of them. Bare actions are refused here: with several enums in play an action alone does not say which permissions it belongs to.
@@ -84,7 +84,7 @@ final class RoleAndPermissionSeeder extends Seeder
         }
 
         Role::findOrCreate('admin')->syncPermissions(
-            permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->all(),
+            permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->names(),
         );
 
         Role::findOrCreate('lawyer')->syncPermissions(
@@ -93,7 +93,7 @@ final class RoleAndPermissionSeeder extends Seeder
                 ->except([
                     [ResourcePermission::CLIENT_CASE, [PermissionAction::DELETE, PermissionAction::DESTROY]],
                 ])
-                ->all(),
+                ->names(),
         );
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -103,7 +103,7 @@ final class RoleAndPermissionSeeder extends Seeder
 
 ## What throws
 
-Every misuse throws `Igne\Permissions\Exceptions\PermissionException` at the call, before `all()`:
+Every misuse throws `Igne\Permissions\Exceptions\PermissionException` at the call, before `names()`:
 
 - a selection mixing cases of different enums, or a case of an enum missing from `permissions.types`;
 - an action no registered enum lists, when the action alone names the enum;
