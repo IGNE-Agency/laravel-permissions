@@ -95,6 +95,45 @@ final class PermissionRegistry
     }
 
     /**
+     * The enum a selection belongs to, from its first item: the case's own enum, or for an action the
+     * first registered enum that lists it.
+     *
+     * @return class-string<PermissionEnum>
+     */
+    public function typeForSelection(mixed $selection): string
+    {
+        $item = is_array($selection) ? (array_values($selection)[0] ?? null) : $selection;
+
+        if ($item instanceof PermissionEnum) {
+            $this->assertRegistered($item);
+
+            return $item::class;
+        }
+
+        if ($item instanceof PermissionActionEnum) {
+            return $this->typeForAction($item);
+        }
+
+        throw PermissionException::invalidSelection('expected a permission case, an action case, or a list of either');
+    }
+
+    /**
+     * The first registered enum whose actions() lists the action.
+     *
+     * @return class-string<PermissionEnum>
+     */
+    public function typeForAction(PermissionActionEnum $action): string
+    {
+        foreach ($this->types as $type) {
+            if (in_array($action, $this->actionsOf($type), true)) {
+                return $type;
+            }
+        }
+
+        throw PermissionException::invalidSelection(sprintf('no registered enum lists action [%s]', $action->value));
+    }
+
+    /**
      * Render one name. The space prefix and the action are rendered as given; the group only when
      * the enum implements {@see UsesGroup}.
      */
