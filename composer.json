@@ -1,12 +1,18 @@
 {
-    "name": "igne/laravel-permissions",
+    "name": "igne-agency/laravel-permissions",
     "description": "Enum-first permission names and permission lists for Laravel projects, on top of spatie/laravel-permission.",
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
     "keywords": [
         "laravel",
         "permissions",
         "spatie"
+    ],
+    "authors": [
+        {
+            "name": "Rick Blanksma",
+            "email": "rick@igne.nl"
+        }
     ],
     "require": {
         "php": "^8.4",

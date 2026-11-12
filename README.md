@@ -1,4 +1,4 @@
-# igne/laravel-permissions
+# igne-agency/laravel-permissions
 
 Builds permission names and permission lists from the enums an app defines, on top of [spatie/laravel-permission](https://github.com/spatie/laravel-permission). The app keeps its spaces, permission enums, roles, labels, admin screens and seeder; the package only turns enum cases into the strings Spatie stores.
 
@@ -11,12 +11,11 @@ Builds permission names and permission lists from the enums an app defines, on t
 ## Install
 
 ```bash
-composer config repositories.igne-permissions vcs https://github.com/IGNE-Agency/laravel-permissions.git
-composer require igne/laravel-permissions:^1.0
+composer require igne-agency/laravel-permissions
 php artisan vendor:publish --tag=permissions-config
 ```
 
-The repository is private, so Composer needs a GitHub token. See [docs/installation.md](docs/installation.md).
+See [docs/installation.md](docs/installation.md) for the config keys.
 
 ## Example
 
@@ -30,4 +29,4 @@ permissions()->all();
 
 ## Docs
 
-- [Installation](docs/installation.md): the private repository, the GitHub token for CI and deploys, publishing the config and its keys.
+- [Installation](docs/installation.md): requirements, publishing the config, the config keys, versioning.
