@@ -30,3 +30,5 @@ permissions()->all();
 ## Docs
 
 - [Installation](docs/installation.md): requirements, publishing the config, the config keys, versioning.
+- [Defining permissions](docs/defining-permissions.md): the space enum, permission enums, the opt-in contracts and traits, custom actions, registering the enums.
+- [Building names](docs/building-names.md): the `permissions()` chain, the name format, what throws and why, why output strings never change.
