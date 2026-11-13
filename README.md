@@ -1,6 +1,6 @@
 # igne-agency/laravel-permissions
 
-Builds permission names and permission lists from the enums an app defines, on top of [spatie/laravel-permission](https://github.com/spatie/laravel-permission), lets Laravel's Gate fill in the checked user's space, apply implied actions and required space access, and guards spaces whose access excludes each other. Spaces are optional: an app without them gets plain names such as `document:view`. The app keeps its spaces, permission enums, roles, labels, admin screens and seeder; the package only turns enum cases into the strings Spatie stores.
+Builds permission names and permission lists from the models, action classes and enums an app already has, on top of [spatie/laravel-permission](https://github.com/spatie/laravel-permission). A class becomes a permission subject by implementing one interface, and the package discovers it. Laravel's Gate fills in the checked user's space, applies implied actions and required space access, and the package guards spaces whose access excludes each other. Spaces are optional: an app without them gets plain names such as `organization:view`. The app keeps its spaces, roles, labels, admin screens and seeder; the package only turns subjects into the strings Spatie stores.
 
 ## Requirements
 
@@ -20,23 +20,34 @@ See [docs/installation.md](docs/installation.md) for the config keys.
 ## Example
 
 ```php
-permissions()->in(AppSpace::ADMIN_PORTAL)->access();                                  // 'nova:access'
-permissions()->in(AppSpace::ADMIN_PORTAL)->for(ResourcePermission::DOCUMENT)->view(); // 'nova:document:view'
-permissions()->in(AppSpace::ADMIN_PORTAL)->for(ResourcePermission::DOCUMENT)->any(PermissionAction::VIEW, PermissionAction::UPDATE);
-permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->except(ResourcePermission::INVOICE)->names();
-permissions()->only(ResourcePermission::DOCUMENT, PermissionAction::VIEW)->names();  // in every space the enum declares
-permissions()->all();
+final class Organization extends Model implements PermissionSubject, UsesActions, UsesSpaces
+{
+    use HasPermissionKey;      // key 'organization', from the class name
+    use UsesDefaultActions;    // viewAny, view, create, update, delete, restore, destroy
 
-return $user->can(permissions()->for(ResourcePermission::DOCUMENT)->view());         // in a policy: the Gate fills in the user's space
+    public static function spaces(): array
+    {
+        return [AppSpace::ADMIN_PORTAL];
+    }
+}
+
+$user->can(permission()->view(Organization::class));                     // '{space}:organization:view': the Gate fills in the user's space
+$user->can(permission()->in(AppSpace::ADMIN_PORTAL)->update($organization)); // 'nova:organization:update'
+permission()->in(AppSpace::ADMIN_PORTAL)->access();                      // 'nova:access'
+
+permissions()->in(AppSpace::ADMIN_PORTAL)->names();                       // every name in the space, for a role
+permissions()->in(AppSpace::ADMIN_PORTAL)->except(Invoice::class)->names();
+permissions()->only(Organization::class, PermissionAction::VIEW)->names(); // in every space it declares
+permissions()->all();                                                     // every name, for the seeder
 ```
 
-Every space, permission and action is an enum case, so the editor completes them and PHPStan checks them. A call the enums do not support throws instead of producing a name nobody seeded.
+Every space, subject and action is a class or an enum case, so the editor completes them and PHPStan checks them. A call a subject does not support throws instead of producing a name nobody seeded.
 
 ## Docs
 
 - [Installation](docs/installation.md): requirements, publishing the config, the config keys, versioning.
-- [Defining permissions](docs/defining-permissions.md): the space enum, permission enums, the opt-in contracts and traits, an app without spaces, spaces that require access, custom and implied actions, registering the enums.
-- [Building names](docs/building-names.md): the `permissions()` chain, the name format, what throws and why, why output strings never change.
-- [Permission lists](docs/permission-lists.md): `only` and `except` with or without a space, `withAccess`, `onlyFor`, `exceptFor`, pairs, and an app seeder handing a list to its own role.
+- [Defining permissions](docs/defining-permissions.md): subjects and their key, permission enums, the opt-in contracts and traits, discovery, the space enum, an app without spaces, spaces that require access, custom and implied actions.
+- [Building names](docs/building-names.md): `permission()` for one name, the space placeholder, what throws and why, why output strings never change.
+- [Permission lists](docs/permission-lists.md): `permissions()`, `in()->names()`, `only` and `except` with or without a space, `withAccess`, `onlyFor`, `exceptFor`, and an app seeder handing a list to its own role.
 - [Checking permissions](docs/checking-permissions.md): the one-line policy check, `HasPermissionSpace` on the user model, every Gate entry point, the rules the Gate applies, what a policy still decides, revoking and the permission cache, routes, a fixed space, Spatie's direct methods, what throws.
 - [Access guard](docs/access-guard.md): `HasExclusiveAccess`, `AccessGuard`, catching `ConflictingAccessException` and writing the user-facing message.

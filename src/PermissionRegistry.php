@@ -4,63 +4,55 @@ declare(strict_types=1);
 
 namespace Igne\Permissions;
 
-use Igne\Permissions\Contracts\FiltersCasesPerSpace;
 use Igne\Permissions\Contracts\HasExclusiveAccess;
 use Igne\Permissions\Contracts\ImpliesActions;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
+use Igne\Permissions\Contracts\PermissionSubject;
 use Igne\Permissions\Contracts\RequiresAccess;
 use Igne\Permissions\Contracts\SpaceEnum;
-use Igne\Permissions\Contracts\UsesActions;
-use Igne\Permissions\Contracts\UsesGroup;
-use Igne\Permissions\Contracts\UsesSpaces;
 use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\Normalizer\SegmentNormalizer;
 use Illuminate\Support\Facades\Config;
 
 /**
- * The registered permission enums plus the shared formatting config, and the one place that
- * renders enum cases into permission names.
+ * The registered subjects plus the shared formatting config, and the one place that renders
+ * subjects into permission names.
  *
- * Spaces (prefixes) and actions (suffixes) are opt-in: an enum only takes part when it implements
- * {@see UsesSpaces} or {@see UsesActions}. Every space contributes the built-in
- * {@see Permissions::ACCESS} permission.
+ * Names render per scope: a space, or the scope without a space for subjects that do not use
+ * spaces. Every space contributes the built-in {@see Permissions::ACCESS} permission.
  */
 final class PermissionRegistry
 {
     /**
-     * @param  list<class-string<PermissionEnum>>  $types
+     * @param  list<Subject>  $subjects
      */
     public function __construct(
-        private readonly array $types,
+        private readonly array $subjects,
         private readonly string $separator,
         private readonly SegmentNormalizer $normalizer,
         private readonly ?string $prefix,
     ) {}
 
     /**
-     * Built on every call so apps and tests can change the config at runtime.
+     * Built on every call so apps and tests can change the config at runtime; the folder scan
+     * itself is kept per process by {@see SubjectDiscovery}.
      */
     public static function fromConfig(): self
     {
-        $types = [];
-
-        foreach (Config::array('permissions.types') as $type) {
-            if (! is_string($type) || ! is_a($type, PermissionEnum::class, true)) {
-                throw PermissionException::invalidConfig('types', 'every entry must be an enum implementing '.PermissionEnum::class);
-            }
-
-            $types[] = $type;
-        }
-
         $prefix = Config::get('permissions.prefix');
 
         if ($prefix !== null && ! is_string($prefix)) {
             throw PermissionException::invalidConfig('prefix', 'must be a string or null');
         }
 
+        $types = [
+            ...app(SubjectDiscovery::class)->within(self::stringList('discover')),
+            ...self::stringList('subjects'),
+        ];
+
         return new self(
-            $types,
+            self::subjectsOf(array_values(array_unique($types))),
             Config::string('permissions.separator'),
             SegmentNormalizer::fromName(Config::string('permissions.normalizer')),
             $prefix,
@@ -68,90 +60,49 @@ final class PermissionRegistry
     }
 
     /**
-     * @return list<class-string<PermissionEnum>>
+     * @return list<Subject>
      */
-    public function types(): array
+    public function subjects(): array
     {
-        return $this->types;
-    }
-
-    public function separator(): string
-    {
-        return $this->separator;
-    }
-
-    public function normalizer(): SegmentNormalizer
-    {
-        return $this->normalizer;
-    }
-
-    public function prefix(): ?string
-    {
-        return $this->prefix;
-    }
-
-    public function assertRegistered(PermissionEnum $permission): void
-    {
-        if (! in_array($permission::class, $this->types, true)) {
-            throw PermissionException::invalidSelection(sprintf('[%s] is not registered in permissions.types', $permission::class));
-        }
+        return $this->subjects;
     }
 
     /**
-     * The enum a selection belongs to, from its first item: the case's own enum, or for an action the
-     * first registered enum that lists it.
-     *
-     * @return class-string<PermissionEnum>
+     * The registered subject for a subject class, an instance of one, or a permission enum case.
      */
-    public function typeForSelection(mixed $selection): string
+    public function subject(mixed $input): Subject
     {
-        $item = is_array($selection) ? (array_values($selection)[0] ?? null) : $selection;
+        $subject = match (true) {
+            $input instanceof PermissionEnum => Subject::ofCase($input),
+            $input instanceof PermissionSubject => Subject::ofClass($input::class),
+            is_string($input) && is_a($input, PermissionSubject::class, true) => Subject::ofClass($input),
+            default => throw PermissionException::invalidSelection('expected a permission subject class, an instance of one, or a permission enum case'),
+        };
 
-        if ($item instanceof PermissionEnum) {
-            $this->assertRegistered($item);
-
-            return $item::class;
-        }
-
-        if ($item instanceof PermissionActionEnum) {
-            return $this->typeForAction($item);
-        }
-
-        throw PermissionException::invalidSelection('expected a permission case, an action case, or a list of either');
-    }
-
-    /**
-     * The first registered enum whose actions() lists the action.
-     *
-     * @return class-string<PermissionEnum>
-     */
-    public function typeForAction(PermissionActionEnum $action): string
-    {
-        foreach ($this->types as $type) {
-            if (in_array($action, $this->actionsOf($type), true)) {
-                return $type;
+        foreach ($this->subjects as $registered) {
+            if ($registered->is($subject)) {
+                return $registered;
             }
         }
 
-        throw PermissionException::invalidSelection(sprintf('no registered enum lists action [%s]', $action->value));
+        throw PermissionException::unregisteredSubject($subject);
     }
 
     /**
-     * Render one name. The space prefix and the action are rendered as given; the group only when
-     * the enum implements {@see UsesGroup}. A space-using enum without a space renders the
-     * {@see Permissions::SPACE_PLACEHOLDER} placeholder in the space position.
+     * Render one name. A subject that uses spaces renders the {@see Permissions::SPACE_PLACEHOLDER}
+     * placeholder in the space position when no space is given.
      */
-    public function name(PermissionEnum $permission, ?PermissionActionEnum $action, ?SpaceEnum $space): string
+    public function name(Subject $subject, ?PermissionActionEnum $action, ?SpaceEnum $space): string
     {
         return (string) PermissionName::make(
-            permission: $permission,
+            permission: $subject->key(),
             action: $action,
             space: $space,
-            group: $permission instanceof UsesGroup ? $permission::group() : null,
+            group: $subject->group(),
             prefix: $this->prefix,
             separator: $this->separator,
             normalizer: $this->normalizer,
-            spacePlaceholder: $space === null && $permission instanceof UsesSpaces,
+            spacePlaceholder: $space === null && $subject->usesSpaces(),
         );
     }
 
@@ -165,7 +116,7 @@ final class PermissionRegistry
 
     /**
      * The concrete name for a space: the placeholder becomes the space prefix, normalized like
-     * every other segment, so the result is byte-identical to the name in($space) renders and seeds.
+     * every other segment, so the result is byte-identical to the name in() renders and seeds.
      */
     public function resolveSpacePlaceholder(string $name, SpaceEnum $space): string
     {
@@ -187,46 +138,60 @@ final class PermissionRegistry
     }
 
     /**
-     * Every name of one enum within a space: its cases allowed there, times its actions.
+     * The names of one subject in a scope: the given actions, or all of its actions when null.
+     * A subject without actions renders once. Empty when the subject does not render in the scope.
      *
-     * @param  class-string<PermissionEnum>  $type
+     * @param  list<PermissionActionEnum>|null  $actions
      * @return list<string>
      */
-    public function namesFor(string $type, ?SpaceEnum $space): array
+    public function namesOf(Subject $subject, ?array $actions, ?SpaceEnum $scope): array
     {
-        return $this->expand($this->casesInSpace($type, $space), $this->actionsOf($type), $space);
+        if (! $subject->rendersIn($scope)) {
+            return [];
+        }
+
+        if ($subject->actions() === []) {
+            return [$this->name($subject, null, $scope)];
+        }
+
+        return array_map(
+            fn (PermissionActionEnum $action): string => $this->name($subject, $action, $scope),
+            $actions ?? $subject->actions(),
+        );
     }
 
     /**
-     * Every combination of the given cases and actions as names within a space. Without actions,
-     * each case renders once.
+     * Every name in a scope: each subject's names, plus the space's access permission.
      *
-     * @param  list<PermissionEnum>  $cases
-     * @param  list<PermissionActionEnum>  $actions
      * @return list<string>
      */
-    public function expand(array $cases, array $actions, ?SpaceEnum $space): array
+    public function scopeNames(?SpaceEnum $scope): array
     {
         $names = [];
 
-        foreach ($cases as $case) {
-            if ($actions === []) {
-                $names[] = $this->name($case, null, $space);
-
-                continue;
-            }
-
-            foreach ($actions as $action) {
-                $names[] = $this->name($case, $action, $space);
-            }
+        foreach ($this->subjects as $subject) {
+            $names = [...$names, ...$this->namesOf($subject, null, $scope)];
         }
 
-        return $names;
+        if ($scope !== null) {
+            $names[] = $this->accessName($scope);
+        }
+
+        return array_values(array_unique($names));
     }
 
     /**
-     * Every permission name across all enums and all of their spaces, plus the built-in access
-     * permission of every space.
+     * Every scope names render in: the one without a space, then every space.
+     *
+     * @return list<SpaceEnum|null>
+     */
+    public function scopes(): array
+    {
+        return [null, ...$this->spaces()];
+    }
+
+    /**
+     * Every permission name: the subjects without spaces, then each space with its access permission.
      *
      * @return list<string>
      */
@@ -234,75 +199,34 @@ final class PermissionRegistry
     {
         $names = [];
 
-        foreach ($this->types as $type) {
-            if (! is_a($type, UsesSpaces::class, true)) {
-                $names = [...$names, ...$this->namesFor($type, null)];
-
-                continue;
-            }
-
-            foreach ($type::spaces() as $space) {
-                $names = [...$names, ...$this->namesFor($type, $space)];
-            }
-        }
-
-        foreach ($this->spaces() as $space) {
-            $names[] = $this->accessName($space);
+        foreach ($this->scopes() as $scope) {
+            $names = [...$names, ...$this->scopeNames($scope)];
         }
 
         return array_values(array_unique($names));
     }
 
     /**
-     * Every permission name within a single space (space-using enums only) plus its access permission.
+     * The distinct spaces the subjects declare, in registration order.
      *
-     * @return list<string>
+     * @return list<SpaceEnum>
      */
-    public function allNamesForSpace(SpaceEnum $space): array
+    public function spaces(): array
     {
-        $names = [];
+        $spaces = [];
 
-        foreach ($this->types as $type) {
-            if (is_a($type, UsesSpaces::class, true)) {
-                $names = [...$names, ...$this->namesFor($type, $space)];
+        foreach ($this->subjects as $subject) {
+            foreach ($subject->declaredSpaces() as $space) {
+                $spaces[$space::class.'::'.$space->name] = $space;
             }
         }
 
-        $names[] = $this->accessName($space);
-
-        return array_values(array_unique($names));
+        return array_values($spaces);
     }
 
     /**
-     * The cases of an enum that are available in a space. Only {@see FiltersCasesPerSpace} enums
-     * restrict their cases; every other enum offers all of them in every space.
-     *
-     * @param  class-string<PermissionEnum>  $type
-     * @return list<PermissionEnum>
-     */
-    public function casesInSpace(string $type, ?SpaceEnum $space): array
-    {
-        if ($space !== null && is_a($type, FiltersCasesPerSpace::class, true)) {
-            return $type::allowedCasesForSpace($space);
-        }
-
-        return $type::permissions();
-    }
-
-    /**
-     * The actions of an enum; empty when it does not use actions.
-     *
-     * @param  class-string<PermissionEnum>  $type
-     * @return list<PermissionActionEnum>
-     */
-    public function actionsOf(string $type): array
-    {
-        return is_a($type, UsesActions::class, true) ? $type::actions() : [];
-    }
-
-    /**
-     * The spaces whose access permissions exclude each other, collected from the registered space
-     * enums that implement {@see HasExclusiveAccess}.
+     * The spaces whose access permissions exclude each other, collected from the space enums that
+     * implement {@see HasExclusiveAccess}.
      *
      * @return list<SpaceEnum>
      */
@@ -335,7 +259,7 @@ final class PermissionRegistry
                 continue;
             }
 
-            if ($name !== $this->accessName($space) && in_array($name, $this->allNamesForSpace($space), true)) {
+            if ($name !== $this->accessName($space) && in_array($name, $this->scopeNames($space), true)) {
                 return $space;
             }
         }
@@ -344,34 +268,31 @@ final class PermissionRegistry
     }
 
     /**
-     * The names whose grant also grants the given name under an {@see ImpliesActions} enum's rules:
-     * the same permission in the same space with an action that implies this one, directly or
+     * The names whose grant also grants the given name under an {@see ImpliesActions} subject's
+     * rules: the same subject in the same scope with an action that implies this one, directly or
      * through other actions. Empty for every other name.
      *
      * @return list<string>
      */
     public function namesImplying(string $name): array
     {
-        foreach ($this->types as $type) {
-            if (! is_a($type, ImpliesActions::class, true)) {
+        foreach ($this->subjects as $subject) {
+            if (! $subject->impliesActions()) {
                 continue;
             }
 
-            $actions = $this->actionsOf($type);
-            $spaces = is_a($type, UsesSpaces::class, true) ? $type::spaces() : [null];
+            $scopes = $subject->usesSpaces() ? $subject->spaces() : [null];
 
-            foreach ($spaces as $space) {
-                foreach ($this->casesInSpace($type, $space) as $case) {
-                    foreach ($actions as $action) {
-                        if ($this->name($case, $action, $space) !== $name) {
-                            continue;
-                        }
-
-                        return array_map(
-                            fn (PermissionActionEnum $implying): string => $this->name($case, $implying, $space),
-                            $this->actionsImplying($type, $actions, $action),
-                        );
+            foreach ($scopes as $scope) {
+                foreach ($subject->actions() as $action) {
+                    if ($this->name($subject, $action, $scope) !== $name) {
+                        continue;
                     }
+
+                    return array_map(
+                        fn (PermissionActionEnum $implying): string => $this->name($subject, $implying, $scope),
+                        $this->actionsImplying($subject, $action),
+                    );
                 }
             }
         }
@@ -380,21 +301,20 @@ final class PermissionRegistry
     }
 
     /**
-     * Every action of the enum whose grant reaches the target through the enum's implications,
-     * the target itself excluded, so cycles end.
+     * Every action of the subject whose grant reaches the target through its implications, the
+     * target itself excluded, so cycles end.
      *
-     * @param  class-string<ImpliesActions&PermissionEnum>  $type
-     * @param  list<PermissionActionEnum>  $actions
      * @return list<PermissionActionEnum>
      */
-    private function actionsImplying(string $type, array $actions, PermissionActionEnum $target): array
+    private function actionsImplying(Subject $subject, PermissionActionEnum $target): array
     {
+        $actions = $subject->actions();
         $impliedBy = [];
 
         foreach ($actions as $action) {
-            foreach ($type::impliedActions($action) as $implied) {
+            foreach ($subject->impliedActions($action) as $implied) {
                 if (! in_array($implied, $actions, true)) {
-                    throw PermissionException::unsupportedImpliedAction($type, $action, $implied);
+                    throw PermissionException::unsupportedImpliedAction($subject, $action, $implied);
                 }
 
                 $impliedBy[self::actionKey($implied)][] = $action;
@@ -426,24 +346,49 @@ final class PermissionRegistry
     }
 
     /**
-     * The distinct spaces declared by every space-using enum, in registration order.
+     * Every subject class becomes one subject; every permission enum one subject per case.
      *
-     * @return list<SpaceEnum>
+     * @param  list<string>  $types
+     * @return list<Subject>
      */
-    public function spaces(): array
+    private static function subjectsOf(array $types): array
     {
-        $spaces = [];
+        $subjects = [];
 
-        foreach ($this->types as $type) {
-            if (! is_a($type, UsesSpaces::class, true)) {
+        foreach ($types as $type) {
+            if (is_a($type, PermissionEnum::class, true)) {
+                foreach ($type::permissions() as $case) {
+                    $subjects[] = Subject::ofCase($case);
+                }
+
                 continue;
             }
 
-            foreach ($type::spaces() as $space) {
-                $spaces[$space::class.'::'.$space->name] = $space;
+            if (! is_a($type, PermissionSubject::class, true)) {
+                throw PermissionException::invalidConfig('subjects', sprintf('[%s] implements neither %s nor %s', $type, PermissionSubject::class, PermissionEnum::class));
             }
+
+            $subjects[] = Subject::ofClass($type);
         }
 
-        return array_values($spaces);
+        return $subjects;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function stringList(string $key): array
+    {
+        $list = [];
+
+        foreach (Config::array('permissions.'.$key) as $item) {
+            if (! is_string($item)) {
+                throw PermissionException::invalidConfig($key, 'every entry must be a string');
+            }
+
+            $list[] = $item;
+        }
+
+        return $list;
     }
 }

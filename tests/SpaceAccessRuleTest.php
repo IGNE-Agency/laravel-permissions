@@ -24,7 +24,7 @@ final class SpaceAccessRuleTest extends SpatieTestCase
     {
         parent::setUp();
 
-        $this->registerTypes(TestDocumentPermission::class);
+        $this->registerSubjects(TestDocumentPermission::class);
     }
 
     public function test_a_grant_in_a_space_requiring_access_is_denied_without_access(): void
@@ -47,8 +47,8 @@ final class SpaceAccessRuleTest extends SpatieTestCase
 
     public function test_a_space_that_does_not_require_access_is_unaffected(): void
     {
-        $kioskView = permissions()->in(TestGatedSpace::KIOSK)->for(TestDocumentPermission::DOCUMENT)->view();
-        $manageUsers = permissions()->in(TestSpace::ADMIN)->for(TestGuardPermission::MANAGE_USERS)->name();
+        $kioskView = permission()->in(TestGatedSpace::KIOSK)->view(TestDocumentPermission::DOCUMENT);
+        $manageUsers = permission()->in(TestSpace::ADMIN)->name(TestGuardPermission::MANAGE_USERS);
 
         $this->assertTrue($this->user($kioskView)->can($kioskView));
         $this->assertTrue($this->user($manageUsers)->can($manageUsers));
@@ -56,7 +56,7 @@ final class SpaceAccessRuleTest extends SpatieTestCase
 
     public function test_the_placeholder_form_follows_the_rule(): void
     {
-        $placeholder = permissions()->for(TestDocumentPermission::DOCUMENT)->view();
+        $placeholder = permission()->view(TestDocumentPermission::DOCUMENT);
 
         $this->assertFalse($this->userIn(TestGatedSpace::OFFICE, $this->officeView())->can($placeholder));
         $this->assertTrue($this->userIn(TestGatedSpace::OFFICE, $this->officeAccess(), $this->officeView())->can($placeholder));
@@ -118,11 +118,11 @@ final class SpaceAccessRuleTest extends SpatieTestCase
 
     private function officeAccess(): string
     {
-        return permissions()->in(TestGatedSpace::OFFICE)->access();
+        return permission()->in(TestGatedSpace::OFFICE)->access();
     }
 
     private function officeView(): string
     {
-        return permissions()->in(TestGatedSpace::OFFICE)->for(TestDocumentPermission::DOCUMENT)->action(PermissionAction::VIEW);
+        return permission()->in(TestGatedSpace::OFFICE)->action(PermissionAction::VIEW, TestDocumentPermission::DOCUMENT);
     }
 }

@@ -8,7 +8,7 @@ use Igne\Permissions\Concerns\UsesDefaultActions;
 use Igne\Permissions\PermissionAction;
 
 /**
- * Opt-in capability: a permission enum with an action axis, rendered as "…:permission:action".
+ * Opt-in capability: a permission subject or enum with an action axis, rendered as "…:permission:action".
  *
  * {@see UsesDefaultActions} provides the package's {@see PermissionAction} set, so implementers
  * only write actions() themselves to use a different set.

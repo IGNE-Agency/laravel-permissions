@@ -21,12 +21,12 @@ final class PermissionRegistryTest extends PermissionTestCase
 
             foreach (TestSpace::cases() as $space) {
                 $this->assertSame(
-                    permissions()->in($space)->for(TestResourcePermission::BLOG_POST)->view(),
-                    $registry->resolveSpacePlaceholder(permissions()->for(TestResourcePermission::BLOG_POST)->view(), $space),
+                    permission()->in($space)->view(TestResourcePermission::BLOG_POST),
+                    $registry->resolveSpacePlaceholder(permission()->view(TestResourcePermission::BLOG_POST), $space),
                 );
                 $this->assertSame(
-                    permissions()->in($space)->for(TestGuardPermission::MANAGE_ACCOUNT)->name(),
-                    $registry->resolveSpacePlaceholder(permissions()->for(TestGuardPermission::MANAGE_ACCOUNT)->name(), $space),
+                    permission()->in($space)->name(TestGuardPermission::MANAGE_ACCOUNT),
+                    $registry->resolveSpacePlaceholder(permission()->name(TestGuardPermission::MANAGE_ACCOUNT), $space),
                 );
             }
         }
@@ -34,18 +34,18 @@ final class PermissionRegistryTest extends PermissionTestCase
 
     public function test_resolving_keeps_the_prefix_the_group_and_the_separator(): void
     {
-        Config::set('permissions.types', [TestLeadPermission::class, TestResourcePermission::class]);
+        Config::set('permissions.subjects', [TestLeadPermission::class, TestResourcePermission::class]);
         Config::set('permissions.prefix', 'App');
         Config::set('permissions.separator', '.');
         $registry = PermissionRegistry::fromConfig();
 
         $this->assertSame(
-            permissions()->in(TestSpace::PORTAL)->for(TestLeadPermission::WEB_FORM)->viewAny(),
-            $registry->resolveSpacePlaceholder(permissions()->for(TestLeadPermission::WEB_FORM)->viewAny(), TestSpace::PORTAL),
+            permission()->in(TestSpace::PORTAL)->viewAny(TestLeadPermission::WEB_FORM),
+            $registry->resolveSpacePlaceholder(permission()->viewAny(TestLeadPermission::WEB_FORM), TestSpace::PORTAL),
         );
         $this->assertSame(
-            permissions()->in(TestSpace::ADMIN)->for(TestResourcePermission::ARTICLE)->view(),
-            $registry->resolveSpacePlaceholder(permissions()->for(TestResourcePermission::ARTICLE)->view(), TestSpace::ADMIN),
+            permission()->in(TestSpace::ADMIN)->view(TestResourcePermission::ARTICLE),
+            $registry->resolveSpacePlaceholder(permission()->view(TestResourcePermission::ARTICLE), TestSpace::ADMIN),
         );
     }
 
@@ -53,10 +53,10 @@ final class PermissionRegistryTest extends PermissionTestCase
     {
         $registry = PermissionRegistry::fromConfig();
 
-        $this->assertTrue($registry->hasSpacePlaceholder(permissions()->for(TestResourcePermission::ARTICLE)->view()));
-        $this->assertTrue($registry->hasSpacePlaceholder(permissions()->for(TestGuardPermission::MANAGE_USERS)->name()));
-        $this->assertFalse($registry->hasSpacePlaceholder(permissions()->in(TestSpace::ADMIN)->for(TestResourcePermission::ARTICLE)->view()));
-        $this->assertFalse($registry->hasSpacePlaceholder(permissions()->in(TestSpace::ADMIN)->access()));
+        $this->assertTrue($registry->hasSpacePlaceholder(permission()->view(TestResourcePermission::ARTICLE)));
+        $this->assertTrue($registry->hasSpacePlaceholder(permission()->name(TestGuardPermission::MANAGE_USERS)));
+        $this->assertFalse($registry->hasSpacePlaceholder(permission()->in(TestSpace::ADMIN)->view(TestResourcePermission::ARTICLE)));
+        $this->assertFalse($registry->hasSpacePlaceholder(permission()->in(TestSpace::ADMIN)->access()));
         $this->assertFalse($registry->hasSpacePlaceholder('update'));
     }
 }

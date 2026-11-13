@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Igne\Permissions\Tests;
 
 use Igne\Permissions\Contracts\PermissionEnum;
+use Igne\Permissions\Contracts\PermissionSubject;
 use Igne\Permissions\Tests\Fixtures\TestUser;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Application;
@@ -17,7 +18,7 @@ use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\PermissionServiceProvider;
 
 /**
- * Runs the fixture enums against a real Spatie install: Laravel's and Spatie's tables on the
+ * Runs the fixture subjects against a real Spatie install: Laravel's and Spatie's tables on the
  * in-memory database, every name of permissions()->all() seeded for the web guard.
  */
 #[WithConfig('database.default', 'testing')]
@@ -45,13 +46,13 @@ abstract class SpatieTestCase extends PermissionTestCase
     }
 
     /**
-     * Register these enums next to the default fixtures and seed their names.
+     * Register these subjects next to the default fixtures and seed their names.
      *
-     * @param  class-string<PermissionEnum>  ...$types
+     * @param  class-string<PermissionEnum|PermissionSubject>  ...$subjects
      */
-    protected function registerTypes(string ...$types): void
+    protected function registerSubjects(string ...$subjects): void
     {
-        Config::set('permissions.types', [...Config::array('permissions.types'), ...$types]);
+        Config::set('permissions.subjects', [...Config::array('permissions.subjects'), ...$subjects]);
 
         $this->seedPermissions();
     }

@@ -10,7 +10,7 @@ use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Contracts\Auth\Access\Gate;
 
 /**
- * The Gate hook behind names built without in(): permissions()->for($case)->view().
+ * The Gate hook behind names built without in(): permission()->view($subject).
  *
  * Registered as a Gate::before callback. For an ability that carries
  * {@see Permissions::SPACE_PLACEHOLDER} it takes the space from the user the Gate is checking,

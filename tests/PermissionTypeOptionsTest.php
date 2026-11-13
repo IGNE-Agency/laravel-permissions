@@ -17,7 +17,7 @@ final class PermissionTypeOptionsTest extends PermissionTestCase
 {
     public function test_a_bare_enum_without_spaces_or_actions_renders_just_the_permission(): void
     {
-        Config::set('permissions.types', [TestSettingPermission::class]);
+        Config::set('permissions.subjects', [TestSettingPermission::class]);
 
         $this->assertSame(['darkMode', 'beta'], permissions()->all());
         $this->assertSame('Dark Mode', TestSettingPermission::DARK_MODE->label());
@@ -25,29 +25,29 @@ final class PermissionTypeOptionsTest extends PermissionTestCase
 
     public function test_an_app_defined_action_set_replaces_the_default(): void
     {
-        Config::set('permissions.types', [TestReportPermission::class]);
+        Config::set('permissions.subjects', [TestReportPermission::class]);
 
         $this->assertSame(
             ['backend:report:read', 'backend:report:write'],
-            permissions()->in(TestSpace::ADMIN)->for(TestReportPermission::REPORT)->any(TestCustomAction::READ, TestCustomAction::WRITE),
+            permission()->in(TestSpace::ADMIN)->any(TestReportPermission::REPORT, TestCustomAction::READ, TestCustomAction::WRITE),
         );
         $this->assertSame(
-            ['backend:report:read', 'backend:report:write', 'portal:report:read', 'portal:report:write', 'guest:report:read', 'guest:report:write', 'backend:access', 'portal:access', 'guest:access'],
+            ['backend:report:read', 'backend:report:write', 'backend:access', 'portal:report:read', 'portal:report:write', 'portal:access', 'guest:report:read', 'guest:report:write', 'guest:access'],
             permissions()->all(),
         );
     }
 
     public function test_an_enum_without_a_case_filter_offers_every_case_in_every_space(): void
     {
-        Config::set('permissions.types', [TestReportPermission::class]);
+        Config::set('permissions.subjects', [TestReportPermission::class]);
 
-        $this->assertSame(['portal:report:read', 'portal:report:write', 'portal:access'], permissions()->in(TestSpace::PORTAL)->all());
-        $this->assertSame(['guest:report:read', 'guest:report:write', 'guest:access'], permissions()->in(TestSpace::GUEST)->all());
+        $this->assertSame(['portal:report:read', 'portal:report:write', 'portal:access'], permissions()->in(TestSpace::PORTAL)->names());
+        $this->assertSame(['guest:report:read', 'guest:report:write', 'guest:access'], permissions()->in(TestSpace::GUEST)->names());
     }
 
     public function test_a_case_filter_restricts_a_space_with_only(): void
     {
-        $portal = permissions()->in(TestSpace::PORTAL)->all();
+        $portal = permissions()->in(TestSpace::PORTAL)->names();
 
         $this->assertContains('portal:manageAccount', $portal);
         $this->assertNotContains('portal:manageUsers', $portal);
@@ -56,7 +56,7 @@ final class PermissionTypeOptionsTest extends PermissionTestCase
 
     public function test_a_case_filter_restricts_a_space_with_except(): void
     {
-        $guest = permissions()->in(TestSpace::GUEST)->all();
+        $guest = permissions()->in(TestSpace::GUEST)->names();
 
         $this->assertContains('guest:runReports', $guest);
         $this->assertNotContains('guest:manageAccount', $guest);
@@ -65,13 +65,13 @@ final class PermissionTypeOptionsTest extends PermissionTestCase
 
     public function test_a_grouped_enum_renders_its_group_between_space_and_permission(): void
     {
-        Config::set('permissions.types', [TestLeadPermission::class]);
+        Config::set('permissions.subjects', [TestLeadPermission::class]);
 
-        $this->assertSame('portal:leadSales:phone:viewAny', permissions()->in(TestSpace::PORTAL)->for(TestLeadPermission::PHONE)->viewAny());
-        $this->assertSame('portal:leadSales:webForm:update', permissions()->in(TestSpace::PORTAL)->for(TestLeadPermission::WEB_FORM)->update());
+        $this->assertSame('portal:leadSales:phone:viewAny', permission()->in(TestSpace::PORTAL)->viewAny(TestLeadPermission::PHONE));
+        $this->assertSame('portal:leadSales:webForm:update', permission()->in(TestSpace::PORTAL)->update(TestLeadPermission::WEB_FORM));
         $this->assertSame(
             ['portal:leadSales:phone:viewAny', 'portal:leadSales:phone:update'],
-            permissions()->in(TestSpace::PORTAL)->for(TestLeadPermission::PHONE)->any(PermissionAction::VIEW_ANY, PermissionAction::UPDATE),
+            permission()->in(TestSpace::PORTAL)->any(TestLeadPermission::PHONE, PermissionAction::VIEW_ANY, PermissionAction::UPDATE),
         );
         $this->assertSame(
             [
@@ -87,7 +87,7 @@ final class PermissionTypeOptionsTest extends PermissionTestCase
 
     public function test_only_the_grouped_enum_gets_the_group(): void
     {
-        Config::set('permissions.types', [TestGuardPermission::class, TestLeadPermission::class]);
+        Config::set('permissions.subjects', [TestGuardPermission::class, TestLeadPermission::class]);
 
         $this->assertSame(
             [
@@ -98,7 +98,7 @@ final class PermissionTypeOptionsTest extends PermissionTestCase
                 'portal:leadSales:webForm:update',
                 'portal:access',
             ],
-            permissions()->in(TestSpace::PORTAL)->all(),
+            permissions()->in(TestSpace::PORTAL)->names(),
         );
     }
 }

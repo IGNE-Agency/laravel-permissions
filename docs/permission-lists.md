@@ -1,93 +1,95 @@
 # Permission lists
 
-The package defines no roles. The list builders only produce lists of permission names; the app decides which roles exist and which list each one gets, in its own seeder.
+The package defines no roles. `permissions()` only produces lists of names; the app decides which roles exist and which list each one gets, in its own seeder.
 
-Two builders cover the two shapes a role definition takes. Both are immutable: every `only()` and `except()` returns a new query, `names()` renders the names, and a query also counts and iterates.
-
-## One enum: `only()` and `except()`
-
-`permissions()->in($space)->only(...)` and `->except(...)` filter the names of a single enum within one space. The enum is the one the first selected item belongs to.
+## Whole lists
 
 ```php
-permissions()->in(AppSpace::ADMIN_PORTAL)->only(GuardPermission::SETUP_TWO_FACTOR)->names();
-// ['nova:setupTwoFactor']
+permissions()->all();                                                // every name: subjects without spaces, then each space
+permissions()->in(AppSpace::ADMIN_PORTAL)->names();                  // every name in the admin portal, access last
+permissions()->in([AppSpace::ADMIN_PORTAL, AppSpace::COMPANY_PORTAL])->names(); // both spaces in turn
+```
 
-permissions()->in(AppSpace::ADMIN_PORTAL)->only(ResourcePermission::DOCUMENT, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names();
-// ['nova:document:viewAny', 'nova:document:view']
+`in()` returns a `PermissionQuery`. It is immutable: every `only()` and `except()` returns a new query, `names()` renders the names, and a query also counts and iterates. Lists never carry the `{space}` placeholder, so they are safe to seed and to sync.
+
+## `only()` and `except()`
+
+```php
+permissions()->in(AppSpace::ADMIN_PORTAL)->only(Organization::class)->names();
+// every organization name in the admin portal
+
+permissions()->in(AppSpace::ADMIN_PORTAL)->only(Organization::class, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names();
+// ['nova:organization:viewAny', 'nova:organization:view']
 
 permissions()->in(AppSpace::ADMIN_PORTAL)->only(PermissionAction::VIEW)->names();
-// every 'nova:…:view' of the first registered enum that lists view
+// view on every subject in the admin portal that lists it
 
 permissions()->in(AppSpace::ADMIN_PORTAL)->except([PermissionAction::DELETE, PermissionAction::DESTROY])->names();
-// that enum's names without delete and destroy
+// the whole admin portal without deleting anything
 ```
 
-A selection is a permission case, a list of cases of the same enum, an action case, or a list of actions. The optional second argument narrows permission cases to the given actions; without it a case expands to all of its actions.
+A selection is one item or a list of items. An item is:
 
-Chained calls are additive: each `only()` unions its names into the allow-list, each `except()` into the deny-list, and `names()` returns the allow-list minus the deny-list. A case the enum does not offer in the space yields nothing, never the whole enum.
+- a subject: a `PermissionSubject` class, an instance, or a `PermissionEnum` case, with all of its actions;
+- a bare action: that action on every subject in the scope that lists it;
+- a `[subject, actions]` pair, where actions is one action case or a list;
+- a `Subject::class => actions` entry, the same as a pair.
 
-An enum that does not use spaces renders without a prefix, whatever `in()` says.
-
-## Without a space: `permissions()->only()` and `except()`
-
-The same two builders work straight on `permissions()`, for an app without spaces and for a list that spans every space of one enum:
+The optional second argument applies to every subject in the selection:
 
 ```php
-permissions()->only(DocumentPermission::DOCUMENT, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names();
-// an enum without spaces: ['document:viewAny', 'document:view']
+permissions()->in(AppSpace::ADMIN_PORTAL)->only([
+    GuardPermission::SETUP_TWO_FACTOR,
+    [Organization::class, [PermissionAction::VIEW_ANY, PermissionAction::VIEW]],
+    Invoice::class => [PermissionAction::VIEW],
+])->names();
 
-permissions()->only(ResourcePermission::DOCUMENT, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names();
-// a space-using enum, in every space it declares:
-// ['nova:document:viewAny', 'nova:document:view', 'clientPortal:document:viewAny', 'clientPortal:document:view']
+permissions()->in(AppSpace::ADMIN_PORTAL)->only([Organization::class, Invoice::class], PermissionAction::VIEW)->names();
 ```
 
-A space-using enum renders its names space by space in the order of its `spaces()`, the way `permissions()->all()` lists them, and a case the enum does not offer in a space is left out there. The result equals the per-space `in($space)->only(...)` lists joined, never the `{space}` placeholder, so it is safe to seed and to sync. Selections, chaining and what throws are the same as after `in()`.
+Entries for the same subject in one call merge their actions. A subject the scope does not offer yields nothing, never the whole scope.
 
-## Whole spaces: `withAccess()`
+### Without `in()`
 
-`permissions()->in($space)->withAccess()` builds across every registered enum in the space at once and guarantees the space's `access` permission in the result. Pass a list of spaces to build several at once.
+`permissions()->only()` and `->except()` work across every scope at once: the subjects without spaces, then every space. A subject that uses spaces renders in each space it declares:
 
 ```php
-permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->names();
-// every name in the admin portal, access last
+permissions()->only(Organization::class, PermissionAction::VIEW)->names();
+// ['nova:organization:view', 'customerPortal:organization:view']
 
-permissions()->in(AppSpace::ADMIN_PORTAL)
-    ->withAccess()
-    ->except([
-        RoleManagementPermission::ASSIGN_ROLES,
-        [ResourcePermission::INVOICE, [PermissionAction::DELETE, PermissionAction::DESTROY]],
-    ])
-    ->names();
-// everything except assigning roles and destroying invoices
-
-permissions()->in([AppSpace::ADMIN_PORTAL, AppSpace::COMPANY_PORTAL])
-    ->withAccess()
-    ->only([
-        GuardPermission::SETUP_TWO_FACTOR,
-        [ResourcePermission::CLIENT_CASE, [PermissionAction::VIEW_ANY, PermissionAction::VIEW]],
-    ])
-    ->onlyFor(AppSpace::ADMIN_PORTAL, ResourcePermission::DOCUMENT)
-    ->names();
+permissions()->only(ExportReports::class)->names();
+// ['exportReports']
 ```
 
-A selection is a permission case or a list whose entries are cases or `[permission, actions]` pairs. A pair's actions are one action case or a list of them. Bare actions are refused here: with several enums in play an action alone does not say which permissions it belongs to.
+The result equals the per-scope lists joined.
 
 ### Order matters
 
 The operations replay per space in the order they were called, and the first one sets the mode:
 
 - **`only()` first** restricts: the result starts empty, each `only()` adds its names, each `except()` removes names.
-- **`except()` first** caps: the result starts as the whole space, each `except()` removes names, and each later `only()` restricts the permissions it names to exactly their listed actions while leaving everything else included.
+- **`except()` first** caps: the result starts as the whole space, each `except()` removes names, and each later `only()` restricts the subjects it names to exactly their listed actions while leaving everything else included.
 
-So `except(ARTICLE)->only([[ARTICLE, [VIEW]]])` reads as "drop the article resource, then add back viewing it", and a lone `only(...)` still means "only these".
+So `except(Organization::class)->only(Organization::class, PermissionAction::VIEW)` reads as "drop organizations, then add back viewing them", and a lone `only(...)` still means "only these". The result is re-ordered to the scope's own listing.
 
-`onlyFor($space, ...)` and `exceptFor($space, ...)` pin one operation to one space; `only()` and `except()` apply to every space in `in()`. The result is re-ordered to the canonical listing of each space.
+### Access and single spaces
+
+`withAccess()` keeps each space's `access` permission in the result whatever the operations select, which a role restricted with `only()` usually needs. `onlyFor($space, ...)` and `exceptFor($space, ...)` pin one operation to one space; `only()` and `except()` apply to every space in `in()`.
+
+```php
+permissions()->in([AppSpace::ADMIN_PORTAL, AppSpace::COMPANY_PORTAL])
+    ->withAccess()
+    ->only(GuardPermission::SETUP_TWO_FACTOR)
+    ->onlyFor(AppSpace::ADMIN_PORTAL, Organization::class)
+    ->names();
+```
 
 ## Handing a list to a role
 
 The app owns the roles. A seeder reads the lists and syncs them to Spatie:
 
 ```php
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 final class RoleAndPermissionSeeder extends Seeder
@@ -99,15 +101,12 @@ final class RoleAndPermissionSeeder extends Seeder
         }
 
         Role::findOrCreate('admin')->syncPermissions(
-            permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->names(),
+            permissions()->in(AppSpace::ADMIN_PORTAL)->names(),
         );
 
         Role::findOrCreate('lawyer')->syncPermissions(
             permissions()->in(AppSpace::COMPANY_PORTAL)
-                ->withAccess()
-                ->except([
-                    [ResourcePermission::CLIENT_CASE, [PermissionAction::DELETE, PermissionAction::DESTROY]],
-                ])
+                ->except(ClientCase::class, [PermissionAction::DELETE, PermissionAction::DESTROY])
                 ->names(),
         );
 
@@ -120,7 +119,9 @@ final class RoleAndPermissionSeeder extends Seeder
 
 Every misuse throws `Igne\Permissions\Exceptions\PermissionException` at the call, before `names()`:
 
-- a selection mixing cases of different enums, or a case of an enum missing from `permissions.types`;
-- an action no registered enum lists, when the action alone names the enum;
-- `only()` or `except()` after `in([...])` with several spaces (use `withAccess()` for several spaces);
-- in a whole-space query: a bare action, a second argument next to a list selection, a pair whose first element is not a permission case, or a pair whose actions are not action cases.
+- `in([])`, or an empty selection;
+- a subject that is neither discovered nor listed, or a value that is not a subject;
+- an action the subject does not list, or actions for a subject without actions;
+- a bare action no registered subject lists;
+- a second argument next to a bare action, a pair or a keyed entry;
+- a pair or keyed entry whose actions are not action cases.

@@ -32,11 +32,12 @@ This copies `config/permissions.php` into the app. The package merges its defaul
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `types` | `[]` | The permission enums the package builds names for. Each implements `Igne\Permissions\Contracts\PermissionEnum`. |
+| `discover` | `[app_path()]` | The folders scanned for subjects: classes implementing `Igne\Permissions\Contracts\PermissionSubject` and enums implementing `Igne\Permissions\Contracts\PermissionEnum`. A folder that does not exist throws. |
+| `subjects` | `[]` | Subject classes and permission enums outside the scanned folders, such as those of another package. |
 | `separator` | `':'` | The character between the segments of a name: `nova:document:view`. |
 | `normalizer` | `'camel'` | The casing applied to every segment: `camel`, `snake`, `kebab` or `studly`. Any other value throws. |
 | `prefix` | `null` | An optional first segment for every name. `null` omits it. |
 
-The registry is rebuilt from config on every `permissions()` call, so a test can change these keys at runtime.
+The registry is rebuilt from config on every `permission()` and `permissions()` call, so a test can change these keys at runtime. The folder scan behind `discover` runs once per process per folder set. See [discovery](defining-permissions.md#discovery).
 
 Changing `separator`, `normalizer` or `prefix` changes every generated name. Once permissions exist in the database, that is a data migration in the app, not a config change.

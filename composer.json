@@ -1,6 +1,6 @@
 {
     "name": "igne-agency/laravel-permissions",
-    "description": "Enum-first permission names and permission lists for Laravel projects, on top of spatie/laravel-permission.",
+    "description": "Permission names, lists and checks for the models, action classes and enums of a Laravel app, on top of spatie/laravel-permission.",
     "type": "library",
     "license": "MIT",
     "keywords": [

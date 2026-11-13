@@ -6,238 +6,247 @@ namespace Igne\Permissions\Tests;
 
 use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\PermissionAction;
+use Igne\Permissions\PermissionQuery;
 use Igne\Permissions\Permissions;
 use Igne\Permissions\Tests\Fixtures\TestCustomAction;
+use Igne\Permissions\Tests\Fixtures\TestExportReports;
 use Igne\Permissions\Tests\Fixtures\TestGuardPermission;
-use Igne\Permissions\Tests\Fixtures\TestLeadPermission;
-use Igne\Permissions\Tests\Fixtures\TestNotePermission;
-use Igne\Permissions\Tests\Fixtures\TestReportPermission;
+use Igne\Permissions\Tests\Fixtures\TestOrganization;
 use Igne\Permissions\Tests\Fixtures\TestResourcePermission;
 use Igne\Permissions\Tests\Fixtures\TestSettingPermission;
 use Igne\Permissions\Tests\Fixtures\TestSpace;
-use Illuminate\Support\Facades\Config;
+use ReflectionMethod;
 
+/**
+ * The default fixtures render exportReports without a space; in ADMIN the three guard names, four
+ * resources and the organization with seven actions each, and access; in PORTAL manageAccount, the
+ * organization and access; in GUEST runReports and access.
+ */
 final class PermissionQueryTest extends PermissionTestCase
 {
-    private function resourceAdminCount(): int
+    public function test_in_lists_every_name_of_a_space_with_access_last(): void
     {
-        return count(TestResourcePermission::cases()) * count(PermissionAction::cases());
+        $admin = permissions()->in(TestSpace::ADMIN)->names();
+
+        $this->assertCount(3 + 4 * 7 + 7 + 1, $admin);
+        $this->assertSame('backend:manageUsers', $admin[0]);
+        $this->assertSame('backend:access', $admin[array_key_last($admin)]);
+        $this->assertSame([
+            'portal:manageAccount',
+            ...$this->organizationNames('portal'),
+            'portal:access',
+        ], permissions()->in(TestSpace::PORTAL)->names());
+        $this->assertSame(['guest:runReports', 'guest:access'], permissions()->in(TestSpace::GUEST)->names());
     }
 
-    public function test_only_a_single_case_of_an_enum_without_actions(): void
+    public function test_in_several_spaces_lists_them_in_turn(): void
     {
         $this->assertSame(
-            ['backend:manageAccount'],
-            permissions()->in(TestSpace::ADMIN)->only(TestGuardPermission::MANAGE_ACCOUNT)->names(),
+            [...permissions()->in(TestSpace::PORTAL)->names(), ...permissions()->in(TestSpace::GUEST)->names()],
+            permissions()->in([TestSpace::PORTAL, TestSpace::GUEST])->names(),
         );
     }
 
-    public function test_only_several_cases(): void
+    public function test_all_lists_the_subjects_without_spaces_then_every_space(): void
     {
-        $this->assertSame(
-            ['backend:manageUsers', 'backend:manageAccount'],
-            permissions()->in(TestSpace::ADMIN)->only([TestGuardPermission::MANAGE_USERS, TestGuardPermission::MANAGE_ACCOUNT])->names(),
-        );
+        $this->assertSame([
+            'exportReports',
+            ...permissions()->in(TestSpace::ADMIN)->names(),
+            ...permissions()->in(TestSpace::PORTAL)->names(),
+            ...permissions()->in(TestSpace::GUEST)->names(),
+        ], permissions()->all());
     }
 
-    public function test_chained_only_calls_form_a_union(): void
+    public function test_only_a_class_subject(): void
     {
-        $this->assertSame(
-            ['backend:manageUsers', 'backend:manageAccount', 'backend:runReports'],
-            permissions()->in(TestSpace::ADMIN)
-                ->only(TestGuardPermission::MANAGE_USERS)
-                ->only([TestGuardPermission::MANAGE_ACCOUNT, TestGuardPermission::RUN_REPORTS])
-                ->names(),
-        );
+        $this->assertSame($this->organizationNames('portal'), permissions()->in(TestSpace::PORTAL)->only(TestOrganization::class)->names());
     }
 
-    public function test_except_a_single_case(): void
+    public function test_only_a_subject_with_some_of_its_actions(): void
     {
         $this->assertSame(
-            ['backend:manageUsers', 'backend:runReports'],
-            permissions()->in(TestSpace::ADMIN)->except(TestGuardPermission::MANAGE_ACCOUNT)->names(),
+            ['backend:testOrganization:viewAny', 'backend:testOrganization:view'],
+            permissions()->in(TestSpace::ADMIN)->only(TestOrganization::class, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names(),
         );
-    }
-
-    public function test_only_a_case_with_several_actions(): void
-    {
-        $this->assertSame(
-            ['backend:user:viewAny', 'backend:user:view'],
-            permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names(),
-        );
-    }
-
-    public function test_only_a_case_with_a_single_action(): void
-    {
         $this->assertSame(
             ['backend:user:view'],
             permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER, PermissionAction::VIEW)->names(),
         );
     }
 
-    public function test_only_a_case_without_actions_expands_every_action(): void
+    public function test_a_second_argument_applies_to_every_listed_subject(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::USER)->names();
-
-        $this->assertCount(count(PermissionAction::cases()), $names);
-        $this->assertContains('backend:user:viewAny', $names);
-        $this->assertContains('backend:user:destroy', $names);
+        $this->assertSame(
+            ['backend:user:delete', 'backend:testOrganization:delete'],
+            permissions()->in(TestSpace::ADMIN)->only([TestOrganization::class, TestResourcePermission::USER], PermissionAction::DELETE)->names(),
+        );
     }
 
-    public function test_chained_only_calls_union_cases_with_their_own_actions(): void
+    public function test_a_bare_action_selects_it_on_every_subject_that_lists_it(): void
     {
         $this->assertSame([
-            'backend:profile:viewAny',
+            'backend:article:view',
             'backend:profile:view',
             'backend:user:view',
-            'backend:user:delete',
-        ], permissions()->in(TestSpace::ADMIN)
-            ->only(TestResourcePermission::PROFILE, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])
-            ->only(TestResourcePermission::USER, [PermissionAction::VIEW, PermissionAction::DELETE])
-            ->names());
+            'backend:blogPost:view',
+            'backend:testOrganization:view',
+        ], permissions()->in(TestSpace::ADMIN)->only(PermissionAction::VIEW)->names());
     }
 
-    public function test_only_an_action_selects_it_across_every_case(): void
+    public function test_a_list_mixes_subjects_actions_pairs_and_keyed_entries(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->only(PermissionAction::VIEW)->names();
-
-        foreach ($names as $name) {
-            $this->assertStringEndsWith(':view', $name);
-        }
-
-        $this->assertCount(count(TestResourcePermission::cases()), $names);
+        $this->assertSame(
+            ['backend:manageUsers', 'backend:testOrganization:view'],
+            permissions()->in(TestSpace::ADMIN)->only([TestGuardPermission::MANAGE_USERS, [TestOrganization::class, [PermissionAction::VIEW]]])->names(),
+        );
+        $this->assertSame(
+            ['portal:testOrganization:update'],
+            permissions()->in(TestSpace::PORTAL)->only([TestOrganization::class => [PermissionAction::UPDATE]])->names(),
+        );
+        $this->assertSame(
+            ['portal:manageAccount', 'portal:testOrganization:view'],
+            permissions()->in(TestSpace::PORTAL)->only([TestGuardPermission::MANAGE_ACCOUNT, PermissionAction::VIEW])->names(),
+        );
     }
 
-    public function test_except_actions_removes_them_across_every_case(): void
+    public function test_entries_for_the_same_subject_merge_their_actions(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->except([PermissionAction::UPDATE, PermissionAction::DELETE])->names();
-
-        foreach ($names as $name) {
-            $this->assertStringNotContainsString(':update', $name);
-            $this->assertStringNotContainsString(':delete', $name);
-        }
-
-        $this->assertCount($this->resourceAdminCount() - count(TestResourcePermission::cases()) * 2, $names);
+        $this->assertSame(
+            ['portal:testOrganization:view', 'portal:testOrganization:update'],
+            permissions()->in(TestSpace::PORTAL)->only([
+                TestOrganization::class => [PermissionAction::UPDATE],
+                [TestOrganization::class, PermissionAction::VIEW],
+            ])->names(),
+        );
     }
 
-    public function test_except_a_case_with_actions(): void
+    public function test_chained_only_calls_form_a_union(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)
-            ->except(TestResourcePermission::ARTICLE, [PermissionAction::VIEW, PermissionAction::DELETE])
-            ->names();
-
-        $this->assertNotContains('backend:article:view', $names);
-        $this->assertNotContains('backend:article:delete', $names);
-        $this->assertContains('backend:article:create', $names);
-        $this->assertContains('backend:user:view', $names);
+        $this->assertSame(
+            ['backend:manageUsers', 'backend:runReports'],
+            permissions()->in(TestSpace::ADMIN)->only(TestGuardPermission::MANAGE_USERS)->only(TestGuardPermission::RUN_REPORTS)->names(),
+        );
     }
 
-    public function test_only_and_except_compose(): void
+    public function test_except_removes_its_names(): void
+    {
+        $this->assertSame(['guest:access'], permissions()->in(TestSpace::GUEST)->except(TestGuardPermission::RUN_REPORTS)->names());
+
+        $portal = permissions()->in(TestSpace::PORTAL)->except([PermissionAction::UPDATE, PermissionAction::DELETE])->names();
+
+        $this->assertCount(9 - 2, $portal);
+        $this->assertNotContains('portal:testOrganization:update', $portal);
+        $this->assertNotContains('portal:testOrganization:delete', $portal);
+    }
+
+    public function test_only_then_except_restricts_then_removes(): void
     {
         $names = permissions()->in(TestSpace::ADMIN)
             ->only(PermissionAction::VIEW)
             ->except(TestResourcePermission::ARTICLE, PermissionAction::VIEW)
             ->names();
 
+        $this->assertCount(4, $names);
         $this->assertNotContains('backend:article:view', $names);
-        $this->assertContains('backend:user:view', $names);
-        $this->assertCount(count(TestResourcePermission::cases()) - 1, $names);
     }
 
-    public function test_the_default_actions_are_the_package_action_set(): void
+    public function test_except_then_only_caps_the_named_subject_and_keeps_the_rest(): void
     {
-        $names = permissions()->in(TestSpace::ADMIN)->only(TestResourcePermission::ARTICLE)->names();
+        $names = permissions()->in(TestSpace::ADMIN)
+            ->except(TestGuardPermission::MANAGE_ACCOUNT)
+            ->only([[TestOrganization::class, [PermissionAction::VIEW]]])
+            ->names();
 
-        $this->assertCount(count(PermissionAction::cases()), $names);
-        $this->assertContains('backend:article:viewAny', $names);
-        $this->assertContains('backend:article:destroy', $names);
+        $this->assertContains('backend:testOrganization:view', $names);
+        $this->assertNotContains('backend:testOrganization:create', $names);
+        $this->assertContains('backend:article:create', $names);
+        $this->assertContains('backend:manageUsers', $names);
+        $this->assertNotContains('backend:manageAccount', $names);
+        $this->assertContains('backend:access', $names);
     }
 
-    public function test_an_enum_without_a_case_filter_offers_every_case_in_every_space(): void
+    public function test_except_a_subject_then_only_adds_back_its_listed_actions(): void
     {
-        Config::set('permissions.types', [TestReportPermission::class]);
+        $names = permissions()->in(TestSpace::PORTAL)
+            ->except(TestOrganization::class)
+            ->only(TestOrganization::class, PermissionAction::VIEW)
+            ->names();
 
+        $this->assertSame(['portal:manageAccount', 'portal:testOrganization:view', 'portal:access'], $names);
+    }
+
+    public function test_with_access_keeps_the_access_permission_of_every_space(): void
+    {
+        $this->assertSame(['backend:manageUsers'], permissions()->in(TestSpace::ADMIN)->only(TestGuardPermission::MANAGE_USERS)->names());
         $this->assertSame(
-            ['portal:report:read', 'portal:report:write'],
-            permissions()->in(TestSpace::PORTAL)->only(TestReportPermission::REPORT)->names(),
-        );
-        $this->assertSame(
-            ['guest:report:read', 'guest:report:write'],
-            permissions()->in(TestSpace::GUEST)->only(TestReportPermission::REPORT)->names(),
+            ['backend:manageUsers', 'backend:access', 'portal:access'],
+            permissions()->in([TestSpace::ADMIN, TestSpace::PORTAL])->withAccess()->only(TestGuardPermission::MANAGE_USERS)->names(),
         );
     }
 
-    public function test_grouped_names_filter_like_any_other(): void
+    public function test_only_for_and_except_for_pin_an_operation_to_one_space(): void
     {
-        Config::set('permissions.types', [TestLeadPermission::class]);
+        $names = permissions()->in([TestSpace::ADMIN, TestSpace::PORTAL])
+            ->onlyFor(TestSpace::ADMIN, TestGuardPermission::MANAGE_USERS)
+            ->exceptFor(TestSpace::PORTAL, TestOrganization::class)
+            ->names();
 
-        $this->assertSame(
-            ['portal:leadSales:phone:update'],
-            permissions()->in(TestSpace::PORTAL)->only(TestLeadPermission::PHONE, PermissionAction::UPDATE)->names(),
-        );
+        $this->assertSame(['backend:manageUsers', 'portal:manageAccount', 'portal:access'], $names);
     }
 
-    public function test_an_enum_without_spaces_ignores_the_space(): void
+    public function test_a_subject_outside_the_space_yields_nothing_not_everything(): void
     {
-        Config::set('permissions.types', [TestSettingPermission::class]);
-
-        $this->assertSame(['darkMode'], permissions()->in(TestSpace::ADMIN)->only(TestSettingPermission::DARK_MODE)->names());
-        $this->assertSame(['beta'], permissions()->in(TestSpace::GUEST)->except(TestSettingPermission::DARK_MODE)->names());
-    }
-
-    public function test_a_space_where_the_enum_has_no_cases_yields_nothing(): void
-    {
-        $this->assertSame([], permissions()->in(TestSpace::PORTAL)->only(PermissionAction::VIEW)->names());
-        $this->assertSame([], permissions()->in(TestSpace::GUEST)->only(TestResourcePermission::ARTICLE)->names());
-    }
-
-    public function test_only_a_case_not_allowed_in_the_space_yields_nothing_not_everything(): void
-    {
-        // MANAGE_USERS is not allowed in PORTAL, but the enum does have MANAGE_ACCOUNT there.
-        // only() must still restrict to the (empty) selection, never fall back to the whole enum.
+        $this->assertSame([], permissions()->in(TestSpace::GUEST)->only(TestOrganization::class)->names());
         $this->assertSame([], permissions()->in(TestSpace::PORTAL)->only(TestGuardPermission::MANAGE_USERS)->names());
     }
 
-    public function test_the_query_is_iterable_and_countable(): void
+    public function test_top_level_only_renders_a_subject_in_every_space_it_declares(): void
     {
-        $query = permissions()->in(TestSpace::ADMIN)->only([TestGuardPermission::MANAGE_USERS, TestGuardPermission::MANAGE_ACCOUNT]);
-
-        $this->assertSame(['backend:manageUsers', 'backend:manageAccount'], [...$query]);
-        $this->assertCount(2, $query);
+        $this->assertSame(
+            ['backend:testOrganization:view', 'portal:testOrganization:view'],
+            permissions()->only(TestOrganization::class, PermissionAction::VIEW)->names(),
+        );
+        $this->assertSame(['backend:manageAccount', 'portal:manageAccount'], permissions()->only(TestGuardPermission::MANAGE_ACCOUNT)->names());
     }
 
-    public function test_a_case_of_another_enum_is_rejected(): void
+    public function test_top_level_only_renders_a_subject_without_spaces_as_it_is(): void
     {
-        $this->expectException(PermissionException::class);
-        $this->expectExceptionMessage('expected cases of ['.TestGuardPermission::class.']');
-
-        permissions()->in(TestSpace::ADMIN)->only([TestGuardPermission::MANAGE_USERS, TestResourcePermission::ARTICLE]);
+        $this->assertSame(['exportReports'], permissions()->only(TestExportReports::class)->names());
     }
 
-    public function test_an_action_of_no_registered_enum_is_rejected(): void
+    public function test_top_level_except_equals_the_scope_lists_joined(): void
     {
-        Config::set('permissions.types', [TestGuardPermission::class]);
+        $joined = permissions()->only(TestExportReports::class)->names();
 
-        $this->expectException(PermissionException::class);
-        $this->expectExceptionMessage('no registered enum lists action [view]');
+        foreach (TestSpace::cases() as $space) {
+            $joined = [...$joined, ...permissions()->in($space)->except(TestGuardPermission::RUN_REPORTS)->names()];
+        }
 
-        permissions()->in(TestSpace::ADMIN)->only(PermissionAction::VIEW);
+        $this->assertSame($joined, permissions()->except(TestGuardPermission::RUN_REPORTS)->names());
     }
 
-    public function test_an_unregistered_enum_is_rejected(): void
+    public function test_lists_never_carry_the_space_placeholder(): void
     {
-        $this->expectException(PermissionException::class);
-        $this->expectExceptionMessage('is not registered in permissions.types');
-
-        permissions()->in(TestSpace::ADMIN)->only(TestSettingPermission::BETA);
+        foreach ([...permissions()->all(), ...permissions()->only(PermissionAction::VIEW), ...permissions()->except(TestOrganization::class)] as $name) {
+            $this->assertStringNotContainsString(Permissions::SPACE_PLACEHOLDER, $name);
+        }
     }
 
-    public function test_only_needs_exactly_one_space(): void
+    public function test_the_query_is_iterable_countable_and_immutable(): void
+    {
+        $base = permissions()->in(TestSpace::GUEST);
+        $query = $base->only(TestGuardPermission::RUN_REPORTS);
+
+        $this->assertSame(['guest:runReports'], [...$query]);
+        $this->assertCount(1, $query);
+        $this->assertSame(['guest:runReports', 'guest:access'], $base->names());
+    }
+
+    public function test_in_needs_a_space(): void
     {
         $this->expectException(PermissionException::class);
-        $this->expectExceptionMessage('only() needs exactly one space');
 
-        permissions()->in([TestSpace::ADMIN, TestSpace::PORTAL])->only(TestGuardPermission::MANAGE_USERS);
+        permissions()->in([]);
     }
 
     public function test_an_empty_selection_is_rejected(): void
@@ -247,58 +256,74 @@ final class PermissionQueryTest extends PermissionTestCase
         permissions()->in(TestSpace::ADMIN)->only([]);
     }
 
-    public function test_top_level_only_and_except_on_an_enum_without_spaces(): void
-    {
-        Config::set('permissions.types', [TestSettingPermission::class, TestNotePermission::class]);
-
-        $this->assertSame(['darkMode'], permissions()->only(TestSettingPermission::DARK_MODE)->names());
-        $this->assertSame(['beta'], permissions()->except(TestSettingPermission::DARK_MODE)->names());
-        $this->assertSame(['note:viewAny', 'note:view'], permissions()->only(TestNotePermission::NOTE, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names());
-        $this->assertSame(['note:view'], permissions()->only(PermissionAction::VIEW)->names());
-    }
-
-    public function test_top_level_only_renders_a_space_using_enum_in_every_space_it_declares(): void
-    {
-        Config::set('permissions.types', [TestReportPermission::class]);
-
-        $this->assertSame(
-            ['backend:report:read', 'portal:report:read', 'guest:report:read'],
-            permissions()->only(TestReportPermission::REPORT, TestCustomAction::READ)->names(),
-        );
-        $this->assertSame(
-            ['backend:report:write', 'portal:report:write', 'guest:report:write'],
-            permissions()->except(TestCustomAction::READ)->names(),
-        );
-    }
-
-    public function test_top_level_only_skips_the_spaces_where_a_case_is_not_offered(): void
-    {
-        $this->assertSame(['backend:manageAccount', 'portal:manageAccount'], permissions()->only(TestGuardPermission::MANAGE_ACCOUNT)->names());
-        $this->assertSame(['backend:manageUsers'], permissions()->only(TestGuardPermission::MANAGE_USERS)->names());
-    }
-
-    public function test_top_level_only_equals_the_per_space_lists_joined(): void
-    {
-        $perSpace = [];
-
-        foreach (TestSpace::cases() as $space) {
-            $perSpace = [...$perSpace, ...permissions()->in($space)->except(TestGuardPermission::RUN_REPORTS)->names()];
-        }
-
-        $this->assertSame($perSpace, permissions()->except(TestGuardPermission::RUN_REPORTS)->names());
-    }
-
-    public function test_top_level_lists_never_carry_the_space_placeholder(): void
-    {
-        foreach ([...permissions()->only(PermissionAction::VIEW), ...permissions()->except(TestGuardPermission::MANAGE_USERS)] as $name) {
-            $this->assertStringNotContainsString(Permissions::SPACE_PLACEHOLDER, $name);
-        }
-    }
-
-    public function test_top_level_only_rejects_an_unregistered_enum(): void
+    public function test_an_action_the_subject_does_not_list_is_rejected(): void
     {
         $this->expectException(PermissionException::class);
 
-        permissions()->only(TestSettingPermission::BETA);
+        permissions()->in(TestSpace::ADMIN)->only(TestOrganization::class, TestCustomAction::READ);
+    }
+
+    public function test_actions_for_a_subject_without_actions_are_rejected(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        permissions()->only(TestExportReports::class, PermissionAction::VIEW);
+    }
+
+    public function test_a_bare_action_no_subject_lists_is_rejected(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        permissions()->only(TestCustomAction::READ);
+    }
+
+    public function test_a_second_argument_with_a_bare_action_is_rejected(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        permissions()->only(PermissionAction::VIEW, PermissionAction::UPDATE);
+    }
+
+    public function test_a_second_argument_with_a_pair_is_rejected(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        permissions()->only([[TestOrganization::class, PermissionAction::VIEW]], PermissionAction::UPDATE);
+    }
+
+    public function test_an_unregistered_subject_is_rejected(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        permissions()->in(TestSpace::ADMIN)->except(TestSettingPermission::BETA);
+    }
+
+    public function test_a_pair_with_something_other_than_actions_is_rejected(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        permissions()->only([[TestOrganization::class, [TestResourcePermission::ARTICLE]]]);
+    }
+
+    /**
+     * The native and PHPDoc types rule a plain string out; the runtime guard still answers an
+     * untyped caller with a PermissionException.
+     */
+    public function test_a_string_that_is_not_a_subject_class_is_rejected(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        (new ReflectionMethod(PermissionQuery::class, 'only'))->invoke(permissions()->in(TestSpace::ADMIN), 'user');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function organizationNames(string $prefix): array
+    {
+        return array_map(
+            static fn (PermissionAction $action): string => $prefix.':testOrganization:'.$action->value,
+            PermissionAction::cases(),
+        );
     }
 }

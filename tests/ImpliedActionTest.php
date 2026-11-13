@@ -10,6 +10,7 @@ use Igne\Permissions\Tests\Fixtures\TestBrokenImplicationPermission;
 use Igne\Permissions\Tests\Fixtures\TestCustomAction;
 use Igne\Permissions\Tests\Fixtures\TestDocumentPermission;
 use Igne\Permissions\Tests\Fixtures\TestGatedSpace;
+use Igne\Permissions\Tests\Fixtures\TestInvoice;
 use Igne\Permissions\Tests\Fixtures\TestNotePermission;
 use Igne\Permissions\Tests\Fixtures\TestUser;
 use Illuminate\Support\Facades\Route;
@@ -24,7 +25,7 @@ final class ImpliedActionTest extends SpatieTestCase
     {
         parent::setUp();
 
-        $this->registerTypes(TestDocumentPermission::class, TestNotePermission::class);
+        $this->registerSubjects(TestDocumentPermission::class, TestNotePermission::class);
     }
 
     public function test_an_implying_grant_grants_the_implied_actions_transitively(): void
@@ -46,10 +47,10 @@ final class ImpliedActionTest extends SpatieTestCase
 
     public function test_an_implication_stays_within_its_permission_and_space(): void
     {
-        $kioskEditor = $this->user(permissions()->in(TestGatedSpace::KIOSK)->for(TestDocumentPermission::DOCUMENT)->update());
+        $kioskEditor = $this->user(permission()->in(TestGatedSpace::KIOSK)->update(TestDocumentPermission::DOCUMENT));
         $officeEditor = $this->officeUser($this->office(TestDocumentPermission::DOCUMENT, PermissionAction::UPDATE));
 
-        $this->assertTrue($kioskEditor->can(permissions()->in(TestGatedSpace::KIOSK)->for(TestDocumentPermission::DOCUMENT)->view()));
+        $this->assertTrue($kioskEditor->can(permission()->in(TestGatedSpace::KIOSK)->view(TestDocumentPermission::DOCUMENT)));
         $this->assertFalse($kioskEditor->can($this->office(TestDocumentPermission::DOCUMENT, PermissionAction::VIEW)));
         $this->assertFalse($officeEditor->can($this->office(TestDocumentPermission::CONTRACT, PermissionAction::VIEW)));
     }
@@ -69,15 +70,24 @@ final class ImpliedActionTest extends SpatieTestCase
         $editor = $this->officeUser($this->office(TestDocumentPermission::DOCUMENT, PermissionAction::UPDATE));
         $editor->space = TestGatedSpace::OFFICE;
 
-        $this->assertTrue($editor->can(permissions()->for(TestDocumentPermission::DOCUMENT)->view()));
+        $this->assertTrue($editor->can(permission()->view(TestDocumentPermission::DOCUMENT)));
     }
 
     public function test_an_enum_without_spaces_implies_too(): void
     {
-        $editor = $this->user(permissions()->for(TestNotePermission::NOTE)->update());
+        $editor = $this->user(permission()->update(TestNotePermission::NOTE));
 
-        $this->assertTrue($editor->can(permissions()->for(TestNotePermission::NOTE)->view()));
-        $this->assertFalse($editor->can(permissions()->for(TestNotePermission::NOTE)->delete()));
+        $this->assertTrue($editor->can(permission()->view(TestNotePermission::NOTE)));
+        $this->assertFalse($editor->can(permission()->delete(TestNotePermission::NOTE)));
+    }
+
+    public function test_a_class_subject_implies_too(): void
+    {
+        $this->registerSubjects(TestInvoice::class);
+        $writer = $this->user(permission()->action(TestCustomAction::WRITE, TestInvoice::class));
+
+        $this->assertTrue($writer->can(permission()->action(TestCustomAction::READ, TestInvoice::class)));
+        $this->assertFalse($this->user(permission()->action(TestCustomAction::READ, TestInvoice::class))->can(permission()->action(TestCustomAction::WRITE, TestInvoice::class)));
     }
 
     public function test_a_revoked_implying_name_grants_nothing(): void
@@ -112,21 +122,21 @@ final class ImpliedActionTest extends SpatieTestCase
 
     public function test_an_implied_action_the_enum_does_not_list_throws(): void
     {
-        $this->registerTypes(TestBrokenImplicationPermission::class);
-        $writer = $this->user(permissions()->for(TestBrokenImplicationPermission::ATTACHMENT)->action(TestCustomAction::WRITE));
+        $this->registerSubjects(TestBrokenImplicationPermission::class);
+        $writer = $this->user(permission()->action(TestCustomAction::WRITE, TestBrokenImplicationPermission::ATTACHMENT));
 
         $this->expectException(PermissionException::class);
 
-        $writer->can(permissions()->for(TestBrokenImplicationPermission::ATTACHMENT)->action(TestCustomAction::READ));
+        $writer->can(permission()->action(TestCustomAction::READ, TestBrokenImplicationPermission::ATTACHMENT));
     }
 
     private function officeUser(string ...$permissions): TestUser
     {
-        return $this->user(permissions()->in(TestGatedSpace::OFFICE)->access(), ...$permissions);
+        return $this->user(permission()->in(TestGatedSpace::OFFICE)->access(), ...$permissions);
     }
 
     private function office(TestDocumentPermission $permission, PermissionAction $action): string
     {
-        return permissions()->in(TestGatedSpace::OFFICE)->for($permission)->action($action);
+        return permission()->in(TestGatedSpace::OFFICE)->action($action, $permission);
     }
 }

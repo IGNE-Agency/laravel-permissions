@@ -6,7 +6,7 @@ namespace Igne\Permissions\Exceptions;
 
 use Igne\Permissions\Contracts\HasPermissionSpace;
 use Igne\Permissions\Contracts\PermissionActionEnum;
-use Igne\Permissions\Contracts\PermissionEnum;
+use Igne\Permissions\Subject;
 use LogicException;
 
 /**
@@ -15,32 +15,37 @@ use LogicException;
  */
 final class PermissionException extends LogicException
 {
-    /**
-     * @param  list<PermissionActionEnum>  $supported
-     */
-    public static function unsupportedAction(PermissionEnum $permission, PermissionActionEnum $action, array $supported): self
+    public static function unsupportedAction(Subject $subject, PermissionActionEnum $action): self
     {
-        if ($supported === []) {
+        if ($subject->actions() === []) {
             return new self(sprintf(
-                'Permission [%s] does not use actions; call name() instead of %s().',
-                self::describe($permission),
+                'Permission subject [%s] does not use actions; call name() instead of %s().',
+                $subject->id(),
                 $action->value,
             ));
         }
 
         return new self(sprintf(
-            'Permission [%s] does not support action [%s]. Its actions are: %s.',
-            self::describe($permission),
+            'Permission subject [%s] does not support action [%s]. Its actions are: %s.',
+            $subject->id(),
             $action->value,
-            implode(', ', array_map(static fn (PermissionActionEnum $supportedAction): string => (string) $supportedAction->value, $supported)),
+            implode(', ', array_map(static fn (PermissionActionEnum $supported): string => (string) $supported->value, $subject->actions())),
         ));
     }
 
-    public static function actionRequired(PermissionEnum $permission): self
+    public static function actionRequired(Subject $subject): self
     {
         return new self(sprintf(
-            'Permission [%s] uses actions; call an action method such as view() or action() instead of name().',
-            self::describe($permission),
+            'Permission subject [%s] uses actions; call an action method such as view() or action() instead of name().',
+            $subject->id(),
+        ));
+    }
+
+    public static function unregisteredSubject(Subject $subject): self
+    {
+        return new self(sprintf(
+            'Permission subject [%s] is not registered: put it in a folder listed in permissions.discover, or list its class in permissions.subjects.',
+            $subject->id(),
         ));
     }
 
@@ -68,21 +73,13 @@ final class PermissionException extends LogicException
         ));
     }
 
-    /**
-     * @param  class-string<PermissionEnum>  $type
-     */
-    public static function unsupportedImpliedAction(string $type, PermissionActionEnum $action, PermissionActionEnum $implied): self
+    public static function unsupportedImpliedAction(Subject $subject, PermissionActionEnum $action, PermissionActionEnum $implied): self
     {
         return new self(sprintf(
             '[%s] says action [%s] implies [%s], which is not one of its actions().',
-            $type,
+            $subject->type(),
             $action->value,
             $implied->value,
         ));
-    }
-
-    private static function describe(PermissionEnum $permission): string
-    {
-        return $permission::class.'::'.$permission->name;
     }
 }

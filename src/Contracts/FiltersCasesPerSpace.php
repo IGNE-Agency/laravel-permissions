@@ -7,7 +7,7 @@ namespace Igne\Permissions\Contracts;
 use Igne\Permissions\Concerns\FiltersCases;
 
 /**
- * Opt-in refinement of {@see UsesSpaces}: restrict which permission cases appear in each space.
+ * Opt-in refinement of {@see UsesSpaces} for a {@see PermissionEnum}: restrict which permission cases appear in each space.
  *
  * Without this contract every case is allowed in every space. The companion {@see FiltersCases}
  * trait provides only()/except()/all()/none() helpers for the match arms, as in

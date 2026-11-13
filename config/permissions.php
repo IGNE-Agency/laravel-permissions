@@ -5,14 +5,27 @@ declare(strict_types=1);
 return [
     /*
     |--------------------------------------------------------------------------
-    | Permission types
+    | Discovered folders
     |--------------------------------------------------------------------------
     |
-    | The permission enums the package builds names for. Each must implement
-    | Igne\Permissions\Contracts\PermissionEnum. Order is irrelevant.
+    | The folders the package scans for permission subjects: every class that
+    | implements Igne\Permissions\Contracts\PermissionSubject and every enum
+    | that implements Igne\Permissions\Contracts\PermissionEnum. Only files
+    | that mention one of them, or an abstract base that does, are loaded.
     |
     */
-    'types' => [],
+    'discover' => [app_path()],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Listed subjects
+    |--------------------------------------------------------------------------
+    |
+    | Subject classes and permission enums outside the discovered folders,
+    | such as those of another package.
+    |
+    */
+    'subjects' => [],
 
     /*
     |--------------------------------------------------------------------------

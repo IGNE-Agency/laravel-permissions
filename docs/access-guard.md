@@ -25,7 +25,7 @@ enum AppSpace: string implements HasExclusiveAccess, SpaceEnum
 }
 ```
 
-The package collects the exclusive spaces from the space enums that registered permission enums declare in `spaces()`. Admin portal access combines freely with either of the other two.
+The package collects the exclusive spaces from the space enums that the registered subjects declare in `spaces()`. Admin portal access combines freely with either of the other two.
 
 ## Check before granting
 

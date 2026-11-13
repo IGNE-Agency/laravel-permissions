@@ -1,21 +1,21 @@
 # Checking permissions
 
-The chain's names are the strings Spatie stores, so Laravel's Gate and Spatie's own methods take them as they are. A check built with `in($space)` works everywhere. A check built without `in()` lets the Gate fill in the space from the user it is checking, so a policy, a Blade view or a route names the permission and nothing else.
+The names are the strings Spatie stores, so Laravel's Gate and Spatie's own methods take them as they are. A check built with `in($space)` works everywhere. A check built without `in()` lets the Gate fill in the space from the user it is checking, so a policy, a Blade view or a route names the permission and nothing else.
 
 ## One line in a policy
 
 ```php
 public function view(User $user, Document $document): bool
 {
-    return $user->can(permissions()->for(ResourcePermission::DOCUMENT)->view());
+    return $user->can(permission()->view(Document::class));
 }
 ```
 
-Without `in()`, a space-using enum renders `Permissions::SPACE_PLACEHOLDER` where the space prefix would be: `'{space}:document:view'`, or `'app:{space}:document:view'` with a global prefix. Everything else about the name is final.
+Without `in()`, a subject that uses spaces renders `Permissions::SPACE_PLACEHOLDER` where the space prefix would be: `'{space}:document:view'`, or `'app:{space}:document:view'` with a global prefix. Everything else about the name is final.
 
 For an ability that carries the placeholder, the package's Gate hook asks the user the Gate is checking for their space through `permissionSpace()`, replaces the placeholder with that space's normalized prefix, and checks the concrete name through `Gate::forUser($user)`. That inner check is an ordinary one: Spatie's hook, the app's own `before` and `after` callbacks and any `hasPermissionTo()` override apply to it, and its answer is the answer.
 
-An app without spaces skips all of this: its names have no placeholder, its user model needs no contract, and `$user->can(permissions()->for(DocumentPermission::DOCUMENT)->view())` is an ordinary check.
+An app without spaces skips all of this: its names have no placeholder, its user model needs no contract, and `$user->can(permission()->view(Document::class))` is an ordinary check.
 
 ## Rules the Gate applies
 
@@ -23,7 +23,7 @@ The package registers three `Gate::before` callbacks, when the Gate is first bui
 
 1. **Space access**, for a space enum that implements `RequiresAccess`. A name in a listed space is denied unless the checked user also holds that space's `access` permission. With access, the hook steps aside. It runs first because a before callback can only deny by answering before another one grants.
 2. **The placeholder**, as above. The concrete name goes through all three rules again.
-3. **Implied actions**, for a permission enum that implements `ImpliesActions`. A name is granted when the checked user holds a name that implies it, such as `nova:document:update` for `nova:document:view`. Those names are checked through the Gate as well, so a revocation or the access rule applies to them. Otherwise the hook steps aside.
+3. **Implied actions**, for a subject that implements `ImpliesActions`. A name is granted when the checked user holds a name that implies it, such as `nova:document:update` for `nova:document:view`. Those names are checked through the Gate as well, so a revocation or the access rule applies to them. Otherwise the hook steps aside.
 
 The access check goes through the Gate too, so an app callback that grants every ability to a super-admin grants their `access` as well. One that grants a single name does not lift the access rule for it.
 
@@ -31,14 +31,14 @@ Both rules are a decision of the Gate only. Spatie's direct methods described be
 
 ## What the package decides and what a policy decides
 
-Zanzibar, Google's authorization system, separates the schema that says which relations imply which from the data that says who holds what. This package takes the same split one level up. The enums are the schema: which permissions exist, in which spaces, with which actions, and which actions or space access a check implies. Spatie's tables are the data: which role and which user holds which name.
+Zanzibar, Google's authorization system, separates the schema that says which relations imply which from the data that says who holds what. This package takes the same split one level up. The subjects are the schema: which permissions exist, in which spaces, with which actions, and which actions or space access a check implies. Spatie's tables are the data: which role and which user holds which name.
 
 Both are about types of things, never about one record. Whether this user may update this particular document because they wrote it, belong to its team or were invited to it is an object-level question, and it belongs in the app's policy:
 
 ```php
 public function update(User $user, Document $document): bool
 {
-    return $user->can(permissions()->for(ResourcePermission::DOCUMENT)->update())
+    return $user->can(permission()->update(Document::class))
         && $document->team()->is($user->team);
 }
 ```
@@ -72,7 +72,7 @@ final class User extends Authenticatable implements HasPermissionSpace
     public function space(): AppSpace
     {
         foreach (AppSpace::cases() as $space) {
-            if ($this->can(permissions()->in($space)->access())) {
+            if ($this->can(permission()->in($space)->access())) {
                 return $space;
             }
         }
@@ -104,10 +104,10 @@ Routes keep the placeholder as a fixed string, so `route:cache` works; the space
 
 ```php
 Route::get('/documents', [DocumentController::class, 'index'])
-    ->middleware('can:'.permissions()->for(ResourcePermission::DOCUMENT)->viewAny());
+    ->middleware('can:'.permission()->viewAny(Document::class));
 
 Route::get('/documents', [DocumentController::class, 'index'])
-    ->middleware('permission:'.permissions()->for(ResourcePermission::DOCUMENT)->viewAny());
+    ->middleware('permission:'.permission()->viewAny(Document::class));
 ```
 
 Spatie 7 and 8 do not register the `permission` alias; the app registers `Spatie\Permission\Middleware\PermissionMiddleware` under it.
@@ -119,7 +119,7 @@ When the space is not the checked user's own, say it. An admin panel that serves
 ```php
 public function view(User $user, Document $document): bool
 {
-    return $user->can(permissions()->in(AppSpace::ADMIN_PORTAL)->for(ResourcePermission::DOCUMENT)->view());
+    return $user->can(permission()->in(AppSpace::ADMIN_PORTAL)->view(Document::class));
 }
 ```
 
@@ -130,8 +130,8 @@ The explicit name has no placeholder, so the hook ignores it and the user's own 
 `hasPermissionTo()`, `hasAnyPermission()`, `hasAllPermissions()`, `givePermissionTo()`, `revokePermissionTo()`, `syncPermissions()` and the role methods never reach the Gate: they look the name up in the permissions table, and a placeholder name throws Spatie's `PermissionDoesNotExist`. Build those names with `in($space)`:
 
 ```php
-$user->givePermissionTo(permissions()->in(AppSpace::CUSTOMER_PORTAL)->for(ResourcePermission::DOCUMENT)->view());
-$user->hasPermissionTo(permissions()->in(AppSpace::CUSTOMER_PORTAL)->for(ResourcePermission::DOCUMENT)->view());
+$user->givePermissionTo(permission()->in(AppSpace::CUSTOMER_PORTAL)->view(Document::class));
+$user->hasPermissionTo(permission()->in(AppSpace::CUSTOMER_PORTAL)->view(Document::class));
 ```
 
 ## What throws and what is denied
@@ -143,7 +143,7 @@ $user->hasPermissionTo(permissions()->in(AppSpace::CUSTOMER_PORTAL)->for(Resourc
 | The resolved name was never seeded, for example a permission the user's space does not offer | Denied: Spatie finds no such permission |
 | A placeholder name given to one of Spatie's direct methods | Spatie's `PermissionDoesNotExist` |
 | A name in a space that requires access, for a user without that space's `access` | Denied, whatever grants the name. The `can:` and `permission:` middlewares answer 403 |
-| An `ImpliesActions` enum whose `impliedActions()` names an action missing from its `actions()` | `PermissionException` on the first check of that enum's names |
+| An `ImpliesActions` subject whose `impliedActions()` names an action missing from its `actions()` | `PermissionException` on the first check of that subject's names |
 
 ## Events and logs
 

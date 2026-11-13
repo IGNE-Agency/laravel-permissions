@@ -28,7 +28,7 @@ final class AccessGuardTest extends SpatieTestCase
     {
         $this->assertSame([TestSpace::PORTAL, TestSpace::GUEST], PermissionRegistry::fromConfig()->exclusiveSpaces());
 
-        Config::set('permissions.types', [TestSettingPermission::class]);
+        Config::set('permissions.subjects', [TestSettingPermission::class]);
 
         $this->assertSame([], PermissionRegistry::fromConfig()->exclusiveSpaces());
     }

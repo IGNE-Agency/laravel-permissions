@@ -8,6 +8,7 @@ use Igne\Permissions\Contracts\SpaceEnum;
 use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\PermissionAction;
 use Igne\Permissions\Tests\Fixtures\TestGuardPermission;
+use Igne\Permissions\Tests\Fixtures\TestOrganization;
 use Igne\Permissions\Tests\Fixtures\TestResourcePermission;
 use Igne\Permissions\Tests\Fixtures\TestSpace;
 use Igne\Permissions\Tests\Fixtures\TestUser;
@@ -33,6 +34,15 @@ final class PermissionCheckTest extends SpatieTestCase
 
         $this->assertTrue($holder->can($this->articleViewPlaceholder()));
         $this->assertFalse($other->can($this->articleViewPlaceholder()));
+    }
+
+    public function test_a_model_subject_resolves_the_placeholder(): void
+    {
+        $holder = $this->userIn(TestSpace::PORTAL, permission()->in(TestSpace::PORTAL)->update(TestOrganization::class));
+
+        $this->assertTrue($holder->can(permission()->update(new TestOrganization)));
+        $this->assertFalse($holder->can(permission()->view(TestOrganization::class)));
+        $this->assertFalse($this->userIn(TestSpace::ADMIN, permission()->in(TestSpace::PORTAL)->update(TestOrganization::class))->can(permission()->update(TestOrganization::class)));
     }
 
     public function test_the_same_grant_answers_per_user_space(): void
@@ -148,10 +158,8 @@ final class PermissionCheckTest extends SpatieTestCase
     public function test_can_any_resolves_every_placeholder(): void
     {
         $holder = $this->userIn(TestSpace::ADMIN, $this->adminArticleView());
-        $article = permissions()->for(TestResourcePermission::ARTICLE);
-
-        $this->assertTrue($holder->canAny($article->any(PermissionAction::VIEW, PermissionAction::CREATE)));
-        $this->assertFalse($holder->canAny($article->any(PermissionAction::CREATE, PermissionAction::UPDATE)));
+        $this->assertTrue($holder->canAny(permission()->any(TestResourcePermission::ARTICLE, PermissionAction::VIEW, PermissionAction::CREATE)));
+        $this->assertFalse($holder->canAny(permission()->any(TestResourcePermission::ARTICLE, PermissionAction::CREATE, PermissionAction::UPDATE)));
     }
 
     public function test_spaties_direct_methods_take_the_explicit_form(): void
@@ -175,26 +183,26 @@ final class PermissionCheckTest extends SpatieTestCase
 
     private function articleViewPlaceholder(): string
     {
-        return permissions()->for(TestResourcePermission::ARTICLE)->view();
+        return permission()->view(TestResourcePermission::ARTICLE);
     }
 
     private function adminArticleView(): string
     {
-        return permissions()->in(TestSpace::ADMIN)->for(TestResourcePermission::ARTICLE)->view();
+        return permission()->in(TestSpace::ADMIN)->view(TestResourcePermission::ARTICLE);
     }
 
     private function manageAccountPlaceholder(): string
     {
-        return permissions()->for(TestGuardPermission::MANAGE_ACCOUNT)->name();
+        return permission()->name(TestGuardPermission::MANAGE_ACCOUNT);
     }
 
     private function adminManageAccount(): string
     {
-        return permissions()->in(TestSpace::ADMIN)->for(TestGuardPermission::MANAGE_ACCOUNT)->name();
+        return permission()->in(TestSpace::ADMIN)->name(TestGuardPermission::MANAGE_ACCOUNT);
     }
 
     private function portalManageAccount(): string
     {
-        return permissions()->in(TestSpace::PORTAL)->for(TestGuardPermission::MANAGE_ACCOUNT)->name();
+        return permission()->in(TestSpace::PORTAL)->name(TestGuardPermission::MANAGE_ACCOUNT);
     }
 }

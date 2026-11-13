@@ -18,7 +18,7 @@ use Igne\Permissions\ImpliedActionResolver;
 interface ImpliesActions
 {
     /**
-     * The actions a grant of the given action also grants. Each must be one of the enum's own
+     * The actions a grant of the given action also grants. Each must be one of the subject's own
      * actions().
      *
      * @return list<PermissionActionEnum>
