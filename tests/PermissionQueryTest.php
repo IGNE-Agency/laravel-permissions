@@ -6,8 +6,11 @@ namespace Igne\Permissions\Tests;
 
 use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\PermissionAction;
+use Igne\Permissions\Permissions;
+use Igne\Permissions\Tests\Fixtures\TestCustomAction;
 use Igne\Permissions\Tests\Fixtures\TestGuardPermission;
 use Igne\Permissions\Tests\Fixtures\TestLeadPermission;
+use Igne\Permissions\Tests\Fixtures\TestNotePermission;
 use Igne\Permissions\Tests\Fixtures\TestReportPermission;
 use Igne\Permissions\Tests\Fixtures\TestResourcePermission;
 use Igne\Permissions\Tests\Fixtures\TestSettingPermission;
@@ -242,5 +245,60 @@ final class PermissionQueryTest extends PermissionTestCase
         $this->expectException(PermissionException::class);
 
         permissions()->in(TestSpace::ADMIN)->only([]);
+    }
+
+    public function test_top_level_only_and_except_on_an_enum_without_spaces(): void
+    {
+        Config::set('permissions.types', [TestSettingPermission::class, TestNotePermission::class]);
+
+        $this->assertSame(['darkMode'], permissions()->only(TestSettingPermission::DARK_MODE)->names());
+        $this->assertSame(['beta'], permissions()->except(TestSettingPermission::DARK_MODE)->names());
+        $this->assertSame(['note:viewAny', 'note:view'], permissions()->only(TestNotePermission::NOTE, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names());
+        $this->assertSame(['note:view'], permissions()->only(PermissionAction::VIEW)->names());
+    }
+
+    public function test_top_level_only_renders_a_space_using_enum_in_every_space_it_declares(): void
+    {
+        Config::set('permissions.types', [TestReportPermission::class]);
+
+        $this->assertSame(
+            ['backend:report:read', 'portal:report:read', 'guest:report:read'],
+            permissions()->only(TestReportPermission::REPORT, TestCustomAction::READ)->names(),
+        );
+        $this->assertSame(
+            ['backend:report:write', 'portal:report:write', 'guest:report:write'],
+            permissions()->except(TestCustomAction::READ)->names(),
+        );
+    }
+
+    public function test_top_level_only_skips_the_spaces_where_a_case_is_not_offered(): void
+    {
+        $this->assertSame(['backend:manageAccount', 'portal:manageAccount'], permissions()->only(TestGuardPermission::MANAGE_ACCOUNT)->names());
+        $this->assertSame(['backend:manageUsers'], permissions()->only(TestGuardPermission::MANAGE_USERS)->names());
+    }
+
+    public function test_top_level_only_equals_the_per_space_lists_joined(): void
+    {
+        $perSpace = [];
+
+        foreach (TestSpace::cases() as $space) {
+            $perSpace = [...$perSpace, ...permissions()->in($space)->except(TestGuardPermission::RUN_REPORTS)->names()];
+        }
+
+        $this->assertSame($perSpace, permissions()->except(TestGuardPermission::RUN_REPORTS)->names());
+    }
+
+    public function test_top_level_lists_never_carry_the_space_placeholder(): void
+    {
+        foreach ([...permissions()->only(PermissionAction::VIEW), ...permissions()->except(TestGuardPermission::MANAGE_USERS)] as $name) {
+            $this->assertStringNotContainsString(Permissions::SPACE_PLACEHOLDER, $name);
+        }
+    }
+
+    public function test_top_level_only_rejects_an_unregistered_enum(): void
+    {
+        $this->expectException(PermissionException::class);
+
+        permissions()->only(TestSettingPermission::BETA);
     }
 }

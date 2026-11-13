@@ -13,6 +13,7 @@ permissions()->in($space)->for($case)->any(PermissionAction::VIEW, PermissionAct
 permissions()->in($space)->for(GuardPermission::SETUP_TWO_FACTOR)->name();            // an enum without actions
 permissions()->for(FeaturePermission::EXPORT_REPORTS)->name();                        // an enum without spaces
 permissions()->for(ResourcePermission::DOCUMENT)->view();                             // '{space}:document:view', for Gate checks only
+permissions()->only(ResourcePermission::DOCUMENT, PermissionAction::VIEW)->names();  // every space the enum declares; see Permission lists
 permissions()->all();                                                                 // every name, every space
 permissions()->in($space)->all();                                                     // every name in one space, access last
 ```
@@ -27,6 +28,7 @@ permissions()->in($space)->all();                                               
 | `->any(PermissionActionEnum ...$actions)` | `list<string>` | The enum lists every given action |
 | `->name()` | `string` | An enum without actions |
 | `->all()` | `list<string>` | On `permissions()`: nothing. On `in()`: exactly one space |
+| `->only()`, `->except()` | `PermissionQuery` | On `permissions()`: nothing. On `in()`: exactly one space. See [Permission lists](permission-lists.md) |
 
 Every terminal returns a plain `string` or a `list<string>`. Laravel's Gate turns objects it does not know into arrays without an error, so nothing else leaves the chain.
 

@@ -6,8 +6,10 @@ namespace Igne\Permissions;
 
 use Igne\Permissions\Contracts\FiltersCasesPerSpace;
 use Igne\Permissions\Contracts\HasExclusiveAccess;
+use Igne\Permissions\Contracts\ImpliesActions;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
+use Igne\Permissions\Contracts\RequiresAccess;
 use Igne\Permissions\Contracts\SpaceEnum;
 use Igne\Permissions\Contracts\UsesActions;
 use Igne\Permissions\Contracts\UsesGroup;
@@ -319,6 +321,108 @@ final class PermissionRegistry
         }
 
         return array_values($spaces);
+    }
+
+    /**
+     * The space whose built-in access permission a name needs before any grant of it counts: a space
+     * a {@see RequiresAccess} space enum lists that renders the name. The access name itself needs
+     * nothing; a name in no such space returns null.
+     */
+    public function spaceRequiringAccess(string $name): ?SpaceEnum
+    {
+        foreach ($this->spaces() as $space) {
+            if (! $space instanceof RequiresAccess || ! in_array($space, $space::spacesRequiringAccess(), true)) {
+                continue;
+            }
+
+            if ($name !== $this->accessName($space) && in_array($name, $this->allNamesForSpace($space), true)) {
+                return $space;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The names whose grant also grants the given name under an {@see ImpliesActions} enum's rules:
+     * the same permission in the same space with an action that implies this one, directly or
+     * through other actions. Empty for every other name.
+     *
+     * @return list<string>
+     */
+    public function namesImplying(string $name): array
+    {
+        foreach ($this->types as $type) {
+            if (! is_a($type, ImpliesActions::class, true)) {
+                continue;
+            }
+
+            $actions = $this->actionsOf($type);
+            $spaces = is_a($type, UsesSpaces::class, true) ? $type::spaces() : [null];
+
+            foreach ($spaces as $space) {
+                foreach ($this->casesInSpace($type, $space) as $case) {
+                    foreach ($actions as $action) {
+                        if ($this->name($case, $action, $space) !== $name) {
+                            continue;
+                        }
+
+                        return array_map(
+                            fn (PermissionActionEnum $implying): string => $this->name($case, $implying, $space),
+                            $this->actionsImplying($type, $actions, $action),
+                        );
+                    }
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Every action of the enum whose grant reaches the target through the enum's implications,
+     * the target itself excluded, so cycles end.
+     *
+     * @param  class-string<ImpliesActions&PermissionEnum>  $type
+     * @param  list<PermissionActionEnum>  $actions
+     * @return list<PermissionActionEnum>
+     */
+    private function actionsImplying(string $type, array $actions, PermissionActionEnum $target): array
+    {
+        $impliedBy = [];
+
+        foreach ($actions as $action) {
+            foreach ($type::impliedActions($action) as $implied) {
+                if (! in_array($implied, $actions, true)) {
+                    throw PermissionException::unsupportedImpliedAction($type, $action, $implied);
+                }
+
+                $impliedBy[self::actionKey($implied)][] = $action;
+            }
+        }
+
+        $found = [];
+        $pending = [$target];
+
+        while ($pending !== []) {
+            $current = array_shift($pending);
+
+            foreach ($impliedBy[self::actionKey($current)] ?? [] as $implying) {
+                $key = self::actionKey($implying);
+
+                if ($implying !== $target && ! isset($found[$key])) {
+                    $found[$key] = $implying;
+                    $pending[] = $implying;
+                }
+            }
+        }
+
+        return array_values(array_filter($actions, static fn (PermissionActionEnum $action): bool => isset($found[self::actionKey($action)])));
+    }
+
+    private static function actionKey(PermissionActionEnum $action): string
+    {
+        return $action::class.'::'.$action->name;
     }
 
     /**

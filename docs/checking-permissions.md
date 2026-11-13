@@ -13,7 +13,46 @@ public function view(User $user, Document $document): bool
 
 Without `in()`, a space-using enum renders `Permissions::SPACE_PLACEHOLDER` where the space prefix would be: `'{space}:document:view'`, or `'app:{space}:document:view'` with a global prefix. Everything else about the name is final.
 
-The package registers one `Gate::before` callback. For an ability that carries the placeholder it asks the user the Gate is checking for their space through `permissionSpace()`, replaces the placeholder with that space's normalized prefix, and checks the concrete name through `Gate::forUser($user)`. That inner check is an ordinary one: Spatie's hook, the app's own `before` and `after` callbacks and any `hasPermissionTo()` override apply to it, and its answer is the answer. An ability without the placeholder is left to the Gate untouched.
+For an ability that carries the placeholder, the package's Gate hook asks the user the Gate is checking for their space through `permissionSpace()`, replaces the placeholder with that space's normalized prefix, and checks the concrete name through `Gate::forUser($user)`. That inner check is an ordinary one: Spatie's hook, the app's own `before` and `after` callbacks and any `hasPermissionTo()` override apply to it, and its answer is the answer.
+
+An app without spaces skips all of this: its names have no placeholder, its user model needs no contract, and `$user->can(permissions()->for(DocumentPermission::DOCUMENT)->view())` is an ordinary check.
+
+## Rules the Gate applies
+
+The package registers three `Gate::before` callbacks, when the Gate is first built and so ahead of Spatie's and the app's own. Each one steps aside for an ability it has no rule for, so an app that adopts neither contract below sees only the placeholder resolution.
+
+1. **Space access**, for a space enum that implements `RequiresAccess`. A name in a listed space is denied unless the checked user also holds that space's `access` permission. With access, the hook steps aside. It runs first because a before callback can only deny by answering before another one grants.
+2. **The placeholder**, as above. The concrete name goes through all three rules again.
+3. **Implied actions**, for a permission enum that implements `ImpliesActions`. A name is granted when the checked user holds a name that implies it, such as `nova:document:update` for `nova:document:view`. Those names are checked through the Gate as well, so a revocation or the access rule applies to them. Otherwise the hook steps aside.
+
+The access check goes through the Gate too, so an app callback that grants every ability to a super-admin grants their `access` as well. One that grants a single name does not lift the access rule for it.
+
+Both rules are a decision of the Gate only. Spatie's direct methods described below see only the names that were stored: `hasPermissionTo('nova:document:view')` is false for a user who holds only `nova:document:update`, and true for a user without `nova:access`.
+
+## What the package decides and what a policy decides
+
+Zanzibar, Google's authorization system, separates the schema that says which relations imply which from the data that says who holds what. This package takes the same split one level up. The enums are the schema: which permissions exist, in which spaces, with which actions, and which actions or space access a check implies. Spatie's tables are the data: which role and which user holds which name.
+
+Both are about types of things, never about one record. Whether this user may update this particular document because they wrote it, belong to its team or were invited to it is an object-level question, and it belongs in the app's policy:
+
+```php
+public function update(User $user, Document $document): bool
+{
+    return $user->can(permissions()->for(ResourcePermission::DOCUMENT)->update())
+        && $document->team()->is($user->team);
+}
+```
+
+The package answers the first half and will not grow a store of per-record relations. An app that needs per-record sharing graphs at scale wants a dedicated authorization service such as OpenFGA or SpiceDB, not a longer list of names.
+
+## Revoking and the permission cache
+
+A revoked permission is not refused everywhere the same instant. Two caches sit between the database and a check:
+
+- **Spatie's permission cache** holds every permission with its roles, for 24 hours by default, in the app's cache store. Spatie's own role and permission methods flush it. A change made around them, by a query, a seeder that skips `forgetCachedPermissions()` or a deploy that changes the database under a running app, stays invisible until the cache expires or `php artisan permission:cache-reset` runs.
+- **The loaded user model** keeps the roles and direct permissions it loaded. Spatie unloads them on the instance it changes, not on other instances of the same user. A queued job, a long-running worker or an Octane request that already holds the user keeps answering from its copy; reload it with `$user->fresh()` or `$user->unsetRelation('roles')->unsetRelation('permissions')` where a revocation must count at once.
+
+Both rules above resolve to stored names, so they inherit exactly this window and add none of their own.
 
 ## The user model
 
@@ -103,7 +142,11 @@ $user->hasPermissionTo(permissions()->in(AppSpace::CUSTOMER_PORTAL)->for(Resourc
 | A guest: `Gate::allows()`, `@can` or the `can:` middleware with nobody authenticated | Denied, as for any ability. The `can:` middleware answers 403; Spatie's `permission:` middleware answers 403 as well |
 | The resolved name was never seeded, for example a permission the user's space does not offer | Denied: Spatie finds no such permission |
 | A placeholder name given to one of Spatie's direct methods | Spatie's `PermissionDoesNotExist` |
+| A name in a space that requires access, for a user without that space's `access` | Denied, whatever grants the name. The `can:` and `permission:` middlewares answer 403 |
+| An `ImpliesActions` enum whose `impliedActions()` names an action missing from its `actions()` | `PermissionException` on the first check of that enum's names |
 
 ## Events and logs
 
 A placeholder check evaluates twice: the placeholder ability and then the concrete name. `Illuminate\Auth\Access\Events\GateEvaluated` fires for both, and `Gate::after` callbacks see both, so a log of Gate decisions shows `{space}:document:view` followed by `nova:document:view`. The outer result is the inner one.
+
+The rules add evaluations the same way. The access rule checks the space's `access` name before a name in that space, and the implication rule checks the implying names before the name itself, so with both a log can show `nova:access`, `nova:document:update` and then `nova:document:view`.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Igne\Permissions;
 
+use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Contracts\SpaceEnum;
 use Igne\Permissions\Contracts\UsesSpaces;
@@ -56,6 +57,35 @@ final class Permissions
     }
 
     /**
+     * Restrict one enum's names to the given permissions, or to the given actions across all of its
+     * permissions, without naming a space. The enum is the one the first item belongs to.
+     *
+     * An enum that does not use spaces renders its names as they are; a {@see UsesSpaces} enum
+     * renders them in every space it declares, space by space, as {@see self::all()} does. Use
+     * in($space)->only() for one space.
+     *
+     * @param  PermissionEnum|PermissionActionEnum|list<PermissionEnum>|list<PermissionActionEnum>  $permissionsOrActions
+     * @param  PermissionActionEnum|list<PermissionActionEnum>|null  $actions
+     */
+    public function only(PermissionEnum|PermissionActionEnum|array $permissionsOrActions, PermissionActionEnum|array|null $actions = null): PermissionQuery
+    {
+        return $this->query($permissionsOrActions)->only($permissionsOrActions, $actions);
+    }
+
+    /**
+     * Remove the given permissions, or the given actions across all of one enum's permissions, from
+     * that enum's names in every space it declares, or from its names as they are when it does not
+     * use spaces. The enum is the one the first item belongs to.
+     *
+     * @param  PermissionEnum|PermissionActionEnum|list<PermissionEnum>|list<PermissionActionEnum>  $permissionsOrActions
+     * @param  PermissionActionEnum|list<PermissionActionEnum>|null  $actions
+     */
+    public function except(PermissionEnum|PermissionActionEnum|array $permissionsOrActions, PermissionActionEnum|array|null $actions = null): PermissionQuery
+    {
+        return $this->query($permissionsOrActions)->except($permissionsOrActions, $actions);
+    }
+
+    /**
      * Every permission name across all registered enums and spaces.
      *
      * @return list<string>
@@ -63,5 +93,13 @@ final class Permissions
     public function all(): array
     {
         return $this->registry->allNames();
+    }
+
+    /**
+     * @param  PermissionEnum|PermissionActionEnum|list<PermissionEnum>|list<PermissionActionEnum>  $selection
+     */
+    private function query(PermissionEnum|PermissionActionEnum|array $selection): PermissionQuery
+    {
+        return PermissionQuery::for($this->registry, $this->registry->typeForSelection($selection), null);
     }
 }

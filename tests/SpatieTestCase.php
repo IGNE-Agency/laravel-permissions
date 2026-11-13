@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Igne\Permissions\Tests;
 
+use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Tests\Fixtures\TestUser;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Orchestra\Testbench\Attributes\WithConfig;
 use RuntimeException;
@@ -39,11 +41,19 @@ abstract class SpatieTestCase extends PermissionTestCase
         $this->loadLaravelMigrations();
         $this->migrateSpatieTables();
 
-        foreach (permissions()->all() as $name) {
-            Permission::create(['name' => $name, 'guard_name' => 'web']);
-        }
+        $this->seedPermissions();
+    }
 
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+    /**
+     * Register these enums next to the default fixtures and seed their names.
+     *
+     * @param  class-string<PermissionEnum>  ...$types
+     */
+    protected function registerTypes(string ...$types): void
+    {
+        Config::set('permissions.types', [...Config::array('permissions.types'), ...$types]);
+
+        $this->seedPermissions();
     }
 
     protected function user(string ...$permissions): TestUser
@@ -59,6 +69,15 @@ abstract class SpatieTestCase extends PermissionTestCase
         }
 
         return $user;
+    }
+
+    private function seedPermissions(): void
+    {
+        foreach (permissions()->all() as $name) {
+            Permission::findOrCreate($name, 'web');
+        }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     private function migrateSpatieTables(): void

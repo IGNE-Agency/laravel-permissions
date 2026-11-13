@@ -68,6 +68,19 @@ final class PermissionException extends LogicException
         ));
     }
 
+    /**
+     * @param  class-string<PermissionEnum>  $type
+     */
+    public static function unsupportedImpliedAction(string $type, PermissionActionEnum $action, PermissionActionEnum $implied): self
+    {
+        return new self(sprintf(
+            '[%s] says action [%s] implies [%s], which is not one of its actions().',
+            $type,
+            $action->value,
+            $implied->value,
+        ));
+    }
+
     private static function describe(PermissionEnum $permission): string
     {
         return $permission::class.'::'.$permission->name;

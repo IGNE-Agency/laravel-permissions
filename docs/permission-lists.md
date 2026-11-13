@@ -28,6 +28,21 @@ Chained calls are additive: each `only()` unions its names into the allow-list, 
 
 An enum that does not use spaces renders without a prefix, whatever `in()` says.
 
+## Without a space: `permissions()->only()` and `except()`
+
+The same two builders work straight on `permissions()`, for an app without spaces and for a list that spans every space of one enum:
+
+```php
+permissions()->only(DocumentPermission::DOCUMENT, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names();
+// an enum without spaces: ['document:viewAny', 'document:view']
+
+permissions()->only(ResourcePermission::DOCUMENT, [PermissionAction::VIEW_ANY, PermissionAction::VIEW])->names();
+// a space-using enum, in every space it declares:
+// ['nova:document:viewAny', 'nova:document:view', 'clientPortal:document:viewAny', 'clientPortal:document:view']
+```
+
+A space-using enum renders its names space by space in the order of its `spaces()`, the way `permissions()->all()` lists them, and a case the enum does not offer in a space is left out there. The result equals the per-space `in($space)->only(...)` lists joined, never the `{space}` placeholder, so it is safe to seed and to sync. Selections, chaining and what throws are the same as after `in()`.
+
 ## Whole spaces: `withAccess()`
 
 `permissions()->in($space)->withAccess()` builds across every registered enum in the space at once and guarantees the space's `access` permission in the result. Pass a list of spaces to build several at once.

@@ -15,11 +15,13 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * Immutable list builder for the names of a single enum, optionally within a space.
+ * Immutable list builder for the names of a single enum, within one space or across every space the
+ * enum declares.
  *
  * A space prefix only applies to {@see UsesSpaces} enums and per-space case restriction only to
- * {@see FiltersCasesPerSpace} enums; every other enum offers all of
- * its cases everywhere.
+ * {@see FiltersCasesPerSpace} enums; every other enum offers all of its cases everywhere and
+ * renders without a space segment. Without a space, a space-using enum renders its names in each
+ * of its spaces in turn, the way permissions()->all() lists them, never the space placeholder.
  *
  * Chained only()/except() calls are additive: each call is unioned into the allow or deny set,
  * never treated as an AND filter. names() renders the result.
@@ -44,6 +46,7 @@ final class PermissionQuery implements Countable, IteratorAggregate
 
     /**
      * @param  class-string<PermissionEnum>  $type
+     * @param  SpaceEnum|null  $space  null for every space the enum declares
      */
     public static function for(PermissionRegistry $registry, string $type, ?SpaceEnum $space): self
     {
@@ -80,7 +83,7 @@ final class PermissionQuery implements Countable, IteratorAggregate
     }
 
     /**
-     * The permission names the query selects, in the enum's own order.
+     * The permission names the query selects, in the enum's own order, space by space.
      *
      * @return list<string>
      */
@@ -113,13 +116,19 @@ final class PermissionQuery implements Countable, IteratorAggregate
     }
 
     /**
-     * Every name this enum produces within the space, before allow and deny filtering.
+     * Every name this enum produces within its spaces, before allow and deny filtering.
      *
      * @return list<string>
      */
     private function baseNames(): array
     {
-        return $this->registry->expand($this->casesInSpace(), $this->actions(), $this->effectiveSpace());
+        $names = [];
+
+        foreach ($this->effectiveSpaces() as $space) {
+            $names = [...$names, ...$this->registry->expand($this->casesInSpace($space), $this->actions(), $space)];
+        }
+
+        return $names;
     }
 
     /**
@@ -131,16 +140,26 @@ final class PermissionQuery implements Countable, IteratorAggregate
     private function expandSelection(mixed $permissionsOrActions, mixed $actions): array
     {
         $items = is_array($permissionsOrActions) ? array_values($permissionsOrActions) : [$permissionsOrActions];
+        $names = [];
 
         if ($this->isActionList($items)) {
-            return $this->registry->expand($this->casesInSpace(), $this->actionList($items), $this->effectiveSpace());
+            $selectedActions = $this->actionList($items);
+
+            foreach ($this->effectiveSpaces() as $space) {
+                $names = [...$names, ...$this->registry->expand($this->casesInSpace($space), $selectedActions, $space)];
+            }
+
+            return $names;
         }
 
-        return $this->registry->expand(
-            $this->filterToSpace($this->permissionList($items)),
-            $actions === null ? $this->actions() : $this->actionList(is_array($actions) ? array_values($actions) : [$actions]),
-            $this->effectiveSpace(),
-        );
+        $cases = $this->permissionList($items);
+        $selectedActions = $actions === null ? $this->actions() : $this->actionList(is_array($actions) ? array_values($actions) : [$actions]);
+
+        foreach ($this->effectiveSpaces() as $space) {
+            $names = [...$names, ...$this->registry->expand($this->filterToSpace($cases, $space), $selectedActions, $space)];
+        }
+
+        return $names;
     }
 
     /**
@@ -203,13 +222,13 @@ final class PermissionQuery implements Countable, IteratorAggregate
      * @param  list<PermissionEnum>  $cases
      * @return list<PermissionEnum>
      */
-    private function filterToSpace(array $cases): array
+    private function filterToSpace(array $cases, ?SpaceEnum $space): array
     {
-        if ($this->effectiveSpace() === null) {
+        if ($space === null) {
             return $cases;
         }
 
-        $allowed = $this->casesInSpace();
+        $allowed = $this->casesInSpace($space);
 
         return array_values(array_filter($cases, static fn (PermissionEnum $case): bool => in_array($case, $allowed, true)));
     }
@@ -217,9 +236,9 @@ final class PermissionQuery implements Countable, IteratorAggregate
     /**
      * @return list<PermissionEnum>
      */
-    private function casesInSpace(): array
+    private function casesInSpace(?SpaceEnum $space): array
     {
-        return $this->registry->casesInSpace($this->type, $this->effectiveSpace());
+        return $this->registry->casesInSpace($this->type, $space);
     }
 
     /**
@@ -230,8 +249,18 @@ final class PermissionQuery implements Countable, IteratorAggregate
         return $this->registry->actionsOf($this->type);
     }
 
-    private function effectiveSpace(): ?SpaceEnum
+    /**
+     * The spaces the names render in: none for an enum without spaces, else the query's own space or
+     * every space the enum declares.
+     *
+     * @return list<SpaceEnum|null>
+     */
+    private function effectiveSpaces(): array
     {
-        return is_a($this->type, UsesSpaces::class, true) ? $this->space : null;
+        if (! is_a($this->type, UsesSpaces::class, true)) {
+            return [null];
+        }
+
+        return $this->space === null ? $this->type::spaces() : [$this->space];
     }
 }
