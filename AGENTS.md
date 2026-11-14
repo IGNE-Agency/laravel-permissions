@@ -68,7 +68,7 @@
 
 # This repository
 
-`igne/laravel-permissions` is a Composer package, not an application: there is no Artisan, no Boost and no database. Spaces, permission enums, roles and user-facing labels stay in the installing app; this package only builds permission names and lists from them.
+`igne-agency/laravel-permissions` is a Composer package, not an application: there is no Artisan, no Boost and no database. Spaces, permission enums, roles and user-facing labels stay in the installing app; this package only builds permission names and lists from them.
 
 - Checks: `composer lint` (Pint), `composer analyse` (PHPStan, level max, no baseline) and `composer test` (PHPUnit on Orchestra Testbench). Done means all three pass.
 - Generated permission names are stored data in every installing app. Any change to an output string is a breaking change and needs a major version.

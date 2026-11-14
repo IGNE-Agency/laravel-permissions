@@ -1,0 +1,60 @@
+{
+    "name": "igne-agency/laravel-permissions",
+    "description": "Permission names, lists and checks for the models, action classes and enums of a Laravel app, on top of spatie/laravel-permission.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "permissions",
+        "spatie"
+    ],
+    "authors": [
+        {
+            "name": "Rick Blanksma",
+            "email": "rick@igne.nl"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "illuminate/contracts": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0",
+        "spatie/laravel-permission": "^7.0|^8.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.9",
+        "laravel/pint": "^1.20",
+        "orchestra/testbench": "^10.0|^11.0",
+        "phpunit/phpunit": "^11.5|^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Igne\\Permissions\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Igne\\Permissions\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Igne\\Permissions\\PermissionsServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "lint": "pint",
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "test": "phpunit"
+    },
+    "config": {
+        "preferred-install": "dist",
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
