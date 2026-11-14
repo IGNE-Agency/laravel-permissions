@@ -32,6 +32,7 @@ final class Post extends Model implements PermissionSubject, UsesActions, UsesSp
 
 ```php
 permission()->in(Space::ADMIN)->update(Post::class);   // 'admin:post:update'
+permissions()->in(Space::ADMIN)->names();              // every name in the space, for a role
 permissions()->all();                                  // every name, for the seeder
 ```
 
@@ -40,3 +41,4 @@ permissions()->all();                                  // every name, for the se
 - [Installation](docs/installation.md): requirements, the config keys, versioning.
 - [Defining permissions](docs/defining-permissions.md): subjects, every option they can opt into, discovery, spaces and actions.
 - [Building names](docs/building-names.md): `permission()` for one name, and what throws.
+- [Permission lists](docs/permission-lists.md): `permissions()` for lists, every selection form, and handing a list to a role.

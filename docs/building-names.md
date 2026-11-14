@@ -1,6 +1,7 @@
 # Building names
 
 `permission()` builds one name, for a check or a single grant.
+Lists come from `permissions()`; see [permission lists](permission-lists.md).
 
 A subject is a subject class, an instance of it, or a permission enum case. Every call returns a plain string, the name Spatie stores.
 
