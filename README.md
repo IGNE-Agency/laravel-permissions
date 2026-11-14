@@ -15,6 +15,28 @@ composer require igne-agency/laravel-permissions
 php artisan vendor:publish --tag=permissions-config
 ```
 
+## Example
+
+```php
+final class Post extends Model implements PermissionSubject, UsesActions, UsesSpaces
+{
+    use HasPermissionKey;
+    use UsesDefaultActions;
+
+    public static function spaces(): array
+    {
+        return [Space::ADMIN];
+    }
+}
+```
+
+```php
+permission()->in(Space::ADMIN)->update(Post::class);   // 'admin:post:update'
+permissions()->all();                                  // every name, for the seeder
+```
+
 ## Docs
 
 - [Installation](docs/installation.md): requirements, the config keys, versioning.
+- [Defining permissions](docs/defining-permissions.md): subjects, every option they can opt into, discovery, spaces and actions.
+- [Building names](docs/building-names.md): `permission()` for one name, and what throws.
