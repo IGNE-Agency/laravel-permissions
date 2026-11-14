@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Igne\Permissions\PermissionAction;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -58,4 +60,32 @@ return [
     |
     */
     'prefix' => null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Implied actions
+    |--------------------------------------------------------------------------
+    |
+    | Per action value, the actions a grant of it also grants on the same
+    | subject in the same space, checked through the Gate. It applies to every
+    | subject that lists both actions, unless the subject implements
+    | Igne\Permissions\Contracts\ImpliesActions. [] turns it off.
+    |
+    */
+    'implied_actions' => [
+        PermissionAction::UPDATE->value => [PermissionAction::VIEW],
+        PermissionAction::VIEW->value => [PermissionAction::VIEW_ANY],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Required space access
+    |--------------------------------------------------------------------------
+    |
+    | Whether every name in a space needs that space's access permission too,
+    | checked through the Gate. A space enum that implements
+    | Igne\Permissions\Contracts\RequiresAccess decides for its own spaces.
+    |
+    */
+    'requires_access' => true,
 ];

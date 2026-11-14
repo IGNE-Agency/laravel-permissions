@@ -16,11 +16,14 @@ final class PermissionsServiceProvider extends ServiceProvider
         $this->app->singleton(SubjectDiscovery::class);
         $this->app->bind(PermissionRegistry::class, static fn (): PermissionRegistry => PermissionRegistry::fromConfig());
 
-        // An extender runs when the Gate is built, before any afterResolving callback, so the hook
-        // comes before Spatie's and the app's own. Booting never resolves the Gate. The first-class
-        // callable hands the Gate a Closure, which it reflects on to skip guests.
+        // An extender runs when the Gate is built, before any afterResolving callback, so these hooks
+        // come before Spatie's: the access rule can only deny by answering before Spatie grants.
+        // Booting never resolves the Gate. The first-class callables hand the Gate Closures, which
+        // it reflects on to skip guests.
         $this->app->extend(Gate::class, static function (Gate $gate): Gate {
+            $gate->before((new SpaceAccessRule($gate))->resolve(...));
             $gate->before((new PermissionSpaceResolver($gate))->resolve(...));
+            $gate->before((new ImpliedActionResolver($gate))->resolve(...));
 
             return $gate;
         });

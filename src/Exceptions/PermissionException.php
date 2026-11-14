@@ -82,4 +82,14 @@ final class PermissionException extends LogicException
             HasPermissionSpace::class,
         ));
     }
+
+    public static function unsupportedImpliedAction(Subject $subject, PermissionActionEnum $action, PermissionActionEnum $implied): self
+    {
+        return new self(sprintf(
+            '[%s] says action [%s] implies [%s], which is not one of its actions().',
+            $subject->type(),
+            $action->value,
+            $implied->value,
+        ));
+    }
 }
