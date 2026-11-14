@@ -14,6 +14,7 @@ use Igne\Permissions\Contracts\SpaceEnum;
  * Single names come from the permission() helper, see {@see Permission}.
  *
  * Every terminal returns a list of strings: the names Spatie stores.
+ * Lists never carry the space placeholder.
  */
 final class Permissions
 {
@@ -21,6 +22,13 @@ final class Permissions
      * The built-in permission every space gains: "spacePrefix:access".
      */
     public const string ACCESS = 'access';
+
+    /**
+     * The space segment of a single name built without in() for a subject that uses spaces. The
+     * package's Gate hook replaces it with the checked user's own space; see
+     * {@see PermissionSpaceResolver}.
+     */
+    public const string SPACE_PLACEHOLDER = '{space}';
 
     public function __construct(private readonly PermissionRegistry $registry) {}
 

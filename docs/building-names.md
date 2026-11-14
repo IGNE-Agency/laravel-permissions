@@ -15,9 +15,20 @@ A subject is a subject class, an instance of it, or a permission enum case. Ever
 | `permission()->in(Space::ADMIN)->name(FeaturePermission::EXPORT_DATA)` | `admin:exportData` |
 | `permission()->name(PublishPost::class)` | `publishPost` |
 | `permission()->in(Space::ADMIN)->access()` | `admin:access` |
+| `permission()->view(Post::class)` | `{space}:post:view` |
 
 The action methods need a subject with actions; `name()` needs one without.
-A subject that uses spaces needs `in()`; one without spaces must not have it.
+`in()` is only for subjects that use spaces.
+
+## The space placeholder
+
+Without `in()`, a subject that uses spaces renders `{space}` where the space would be. The placeholder is for checks through Laravel's Gate, which replaces it with the checked user's space, so a policy names only the permission:
+
+```php
+return $user->can(permission()->update($post));
+```
+
+Seeding, granting and Spatie's direct methods need `in($space)`. See [checking permissions](checking-permissions.md).
 
 ## What throws
 
@@ -31,7 +42,6 @@ Every misuse throws a `PermissionException` at the call. These are developer err
 | `->access()` without `in()` | Access belongs to a space |
 | `->in($space)` with a subject without spaces | The space would be ignored |
 | `->in($space)` for a space the subject is not allowed in | The name does not exist there; see [allowed per space](defining-permissions.md#allowed-per-space) |
-| A subject with spaces without `in()` | The name needs a space |
 | A subject that is neither discovered nor listed, or a class that is not a subject | No such name exists |
 
 ## Names are stored data
