@@ -94,11 +94,36 @@ final class PermissionTest extends PermissionTestCase
         $this->assertSame('billing:testInvoice:read', permission()->action(TestCustomAction::READ, TestInvoice::class));
     }
 
-    public function test_a_space_using_subject_without_in_throws(): void
+    public function test_a_space_using_subject_without_in_renders_the_space_placeholder(): void
     {
-        $this->expectException(PermissionException::class);
+        $this->assertSame('{space}', Permissions::SPACE_PLACEHOLDER);
+        $this->assertSame('{space}:testPost:view', permission()->view(TestPost::class));
+        $this->assertSame('{space}:article:view', permission()->view(TestResourcePermission::ARTICLE));
+        $this->assertSame('{space}:manageUsers', permission()->name(TestGuardPermission::MANAGE_USERS));
+        $this->assertSame(
+            ['{space}:testPost:view', '{space}:testPost:create'],
+            permission()->any(TestPost::class, PermissionAction::VIEW, PermissionAction::CREATE),
+        );
+    }
 
-        permission()->view(TestPost::class);
+    public function test_the_placeholder_sits_after_the_global_prefix(): void
+    {
+        Config::set('permissions.prefix', 'app');
+
+        $this->assertSame('app:{space}:testPost:view', permission()->view(TestPost::class));
+        $this->assertSame('app:backend:testPost:view', permission()->in(TestSpace::ADMIN)->view(TestPost::class));
+    }
+
+    public function test_the_placeholder_form_differs_from_in_only_in_the_space_segment(): void
+    {
+        $placeholder = permission()->view(TestPost::class);
+
+        foreach ([TestSpace::ADMIN, TestSpace::PORTAL] as $space) {
+            $this->assertSame(
+                permission()->in($space)->view(TestPost::class),
+                str_replace(Permissions::SPACE_PLACEHOLDER, $space->spacePrefix(), $placeholder),
+            );
+        }
     }
 
     public function test_a_grouped_subject_renders_its_group_between_space_and_key(): void

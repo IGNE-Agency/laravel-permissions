@@ -15,7 +15,9 @@ use Igne\Permissions\Exceptions\PermissionException;
  *
  * A subject is a {@see PermissionSubject} class, an instance of one, or a {@see PermissionEnum}
  * case.
- * A subject that uses spaces needs in($space).
+ * Without in(), a subject that uses spaces renders {@see Permissions::SPACE_PLACEHOLDER} where the
+ * space would be; Laravel's Gate fills in the checked user's space. Seeding, granting and Spatie's
+ * direct model methods need in($space).
  *
  * Every terminal checks the subject's own action list first: an action it does not list throws, as
  * does name() on a subject that uses actions.
@@ -159,10 +161,6 @@ final class Permission
 
         if ($this->space !== null && ! $resolved->rendersIn($this->space)) {
             throw PermissionException::notAllowedInSpace($resolved, $this->space);
-        }
-
-        if ($this->space === null && $resolved->usesSpaces()) {
-            throw PermissionException::invalidSelection(sprintf('[%s] uses spaces; call in() first', $resolved->id()));
         }
 
         return $resolved;
