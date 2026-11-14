@@ -8,6 +8,7 @@ use Igne\Permissions\Contracts\HasExclusiveAccess;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Contracts\PermissionSubject;
+use Igne\Permissions\Contracts\RequiresAccess;
 use Igne\Permissions\Contracts\SpaceEnum;
 use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\Normalizer\SegmentNormalizer;
@@ -25,12 +26,15 @@ final class PermissionRegistry
 {
     /**
      * @param  list<Subject>  $subjects
+     * @param  array<string, list<PermissionActionEnum>>  $impliedActions  per action value, the actions a grant of it also grants
      */
     public function __construct(
         private readonly array $subjects,
         private readonly string $separator,
         private readonly SegmentNormalizer $normalizer,
         private readonly ?string $prefix,
+        private readonly array $impliedActions = [],
+        private readonly bool $requiresAccess = false,
     ) {}
 
     /**
@@ -55,6 +59,8 @@ final class PermissionRegistry
             Config::string('permissions.separator'),
             SegmentNormalizer::fromName(Config::string('permissions.normalizer')),
             $prefix,
+            self::configuredImplications(),
+            Config::boolean('permissions.requires_access', false),
         );
     }
 
@@ -215,6 +221,164 @@ final class PermissionRegistry
         return self::distinctSpaces(collect($this->spaces())
             ->filter(static fn (SpaceEnum $space): bool => $space instanceof HasExclusiveAccess)
             ->flatMap(static fn (HasExclusiveAccess $space): array => $space::exclusiveAccessSpaces()));
+    }
+
+    /**
+     * Whether every other name in the space needs the space's access permission first. A space
+     * enum that implements {@see RequiresAccess} decides for its own spaces; every other space
+     * follows the requires_access config.
+     */
+    public function requiresAccess(SpaceEnum $space): bool
+    {
+        if ($space instanceof RequiresAccess) {
+            return in_array($space, $space::spacesRequiringAccess(), true);
+        }
+
+        return $this->requiresAccess;
+    }
+
+    /**
+     * The space whose built-in access permission a name needs before any grant of it counts: a space
+     * that requires access and renders the name. The access name itself needs nothing; a name in
+     * no such space returns null.
+     */
+    public function spaceRequiringAccess(string $name): ?SpaceEnum
+    {
+        return collect($this->spaces())->first(fn (SpaceEnum $space): bool => $this->requiresAccess($space)
+            && $name !== $this->accessName($space)
+            && in_array($name, $this->scopeNames($space), true));
+    }
+
+    /**
+     * The names whose grant also grants the given name: the same subject in the same scope with an
+     * action that implies this one, directly or through other actions. Empty for every other name.
+     *
+     * @return list<string>
+     */
+    public function namesImplying(string $name): array
+    {
+        $match = collect($this->subjects)
+            ->lazy()
+            ->flatMap($this->namedActions(...))
+            ->first(fn (array $candidate): bool => $this->name($candidate['subject'], $candidate['action'], $candidate['scope']) === $name);
+
+        if ($match === null) {
+            return [];
+        }
+
+        return array_map(
+            fn (PermissionActionEnum $implying): string => $this->name($match['subject'], $implying, $match['scope']),
+            $this->actionsImplying($match['subject'], $match['action']),
+        );
+    }
+
+    /**
+     * Every action of the subject in every scope it renders in.
+     *
+     * @return list<array{subject: Subject, scope: SpaceEnum|null, action: PermissionActionEnum}>
+     */
+    private function namedActions(Subject $subject): array
+    {
+        return array_values(collect($subject->usesSpaces() ? $subject->spaces() : [null])
+            ->flatMap(static fn (?SpaceEnum $scope): array => array_map(
+                static fn (PermissionActionEnum $action): array => ['subject' => $subject, 'scope' => $scope, 'action' => $action],
+                $subject->actions(),
+            ))
+            ->all());
+    }
+
+    /**
+     * Every action of the subject whose grant reaches the target through its implications, the
+     * target itself excluded, so cycles end.
+     *
+     * @return list<PermissionActionEnum>
+     */
+    private function actionsImplying(Subject $subject, PermissionActionEnum $target): array
+    {
+        $impliedBy = $this->implicationGraph($subject);
+        $found = collect();
+        $pending = collect([$target]);
+
+        while (($current = $pending->shift()) !== null) {
+            $next = collect($impliedBy[self::actionKey($current)] ?? [])
+                ->reject(fn (PermissionActionEnum $implying): bool => $implying === $target || $found->has(self::actionKey($implying)))
+                ->keyBy(static fn (PermissionActionEnum $implying): string => self::actionKey($implying));
+
+            $found = $found->merge($next);
+            $pending = $pending->merge($next->values());
+        }
+
+        return array_values(collect($subject->actions())
+            ->filter(fn (PermissionActionEnum $action): bool => $found->has(self::actionKey($action)))
+            ->all());
+    }
+
+    /**
+     * For each action of the subject, the actions whose grant implies it: from the subject's own
+     * {@see ImpliesActions}, which must name its own actions, or else from the configured
+     * implications, limited to the actions the subject lists.
+     *
+     * @return array<string, list<PermissionActionEnum>>
+     */
+    private function implicationGraph(Subject $subject): array
+    {
+        return collect($subject->actions())
+            ->flatMap(fn (PermissionActionEnum $action): array => array_map(
+                static fn (PermissionActionEnum $implied): array => ['implied' => $implied, 'implying' => $action],
+                $this->impliedBy($subject, $action),
+            ))
+            ->mapToGroups(static fn (array $edge): array => [self::actionKey($edge['implied']) => $edge['implying']])
+            ->map(static fn (Collection $implying): array => array_values($implying->all()))
+            ->all();
+    }
+
+    /**
+     * @return list<PermissionActionEnum>
+     */
+    private function impliedBy(Subject $subject, PermissionActionEnum $action): array
+    {
+        $declared = $subject->declaredImplications($action);
+
+        if ($declared === null) {
+            return array_values(array_filter($this->impliedActions[(string) $action->value] ?? [], $subject->supports(...)));
+        }
+
+        $unsupported = collect($declared)->first(static fn (PermissionActionEnum $implied): bool => ! $subject->supports($implied));
+
+        return $unsupported === null ? $declared : throw PermissionException::unsupportedImpliedAction($subject, $action, $unsupported);
+    }
+
+    private static function actionKey(PermissionActionEnum $action): string
+    {
+        return $action::class.'::'.$action->name;
+    }
+
+    /**
+     * @return array<string, list<PermissionActionEnum>>
+     */
+    private static function configuredImplications(): array
+    {
+        $implications = Config::get('permissions.implied_actions', []);
+
+        if (! is_array($implications)) {
+            throw PermissionException::invalidConfig('implied_actions', 'must be an array of action values to lists of action cases');
+        }
+
+        return collect($implications)
+            ->mapWithKeys(static fn (mixed $implied, int|string $action): array => [(string) $action => self::actionCases($implied, (string) $action)])
+            ->all();
+    }
+
+    /**
+     * @return list<PermissionActionEnum>
+     */
+    private static function actionCases(mixed $implied, string $action): array
+    {
+        return array_values(collect(is_array($implied) ? $implied : [$implied])
+            ->map(static fn (mixed $case): PermissionActionEnum => $case instanceof PermissionActionEnum
+                ? $case
+                : throw PermissionException::invalidConfig('implied_actions', sprintf('[%s] must list action enum cases', $action)))
+            ->all());
     }
 
     /**
