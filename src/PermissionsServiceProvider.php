@@ -13,6 +13,7 @@ final class PermissionsServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(self::configFile(), 'permissions');
 
         $this->app->singleton(SubjectDiscovery::class);
+        $this->app->bind(PermissionRegistry::class, static fn (): PermissionRegistry => PermissionRegistry::fromConfig());
     }
 
     public function boot(): void
