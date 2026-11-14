@@ -1,6 +1,6 @@
 # igne-agency/laravel-permissions
 
-Builds permission names and permission lists from the enums an app defines, on top of [spatie/laravel-permission](https://github.com/spatie/laravel-permission). The app keeps its spaces, permission enums, roles, labels, admin screens and seeder; the package only turns enum cases into the strings Spatie stores.
+Permission names, lists and checks for the models, action classes and enums of a Laravel app, on top of [spatie/laravel-permission](https://github.com/spatie/laravel-permission). A class becomes a permission subject by implementing one interface; the package discovers it and builds the names Spatie stores. The app keeps its roles, labels, admin screens and seeder.
 
 ## Requirements
 
@@ -15,18 +15,6 @@ composer require igne-agency/laravel-permissions
 php artisan vendor:publish --tag=permissions-config
 ```
 
-See [docs/installation.md](docs/installation.md) for the config keys.
-
-## Example
-
-```php
-permissions()->in(AppSpace::ADMIN_PORTAL)->access();                                  // 'nova:access'
-permissions()->in(AppSpace::ADMIN_PORTAL)->for(ResourcePermission::DOCUMENT)->view(); // 'nova:document:view'
-permissions()->in(AppSpace::ADMIN_PORTAL)->for(ResourcePermission::DOCUMENT)->any(PermissionAction::VIEW, PermissionAction::UPDATE);
-permissions()->in(AppSpace::ADMIN_PORTAL)->withAccess()->except(ResourcePermission::INVOICE)->all();
-permissions()->all();
-```
-
 ## Docs
 
-- [Installation](docs/installation.md): requirements, publishing the config, the config keys, versioning.
+- [Installation](docs/installation.md): requirements, the config keys, versioning.

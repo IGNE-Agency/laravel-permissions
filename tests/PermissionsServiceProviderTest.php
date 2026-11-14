@@ -12,7 +12,8 @@ final class PermissionsServiceProviderTest extends TestCase
 {
     public function test_the_package_config_is_merged_with_its_defaults(): void
     {
-        $this->assertSame([], Config::array('permissions.types'));
+        $this->assertSame([app_path()], Config::array('permissions.discover'));
+        $this->assertSame([], Config::array('permissions.subjects'));
         $this->assertSame(':', Config::string('permissions.separator'));
         $this->assertSame('camel', Config::string('permissions.normalizer'));
         $this->assertNull(Config::get('permissions.prefix'));
@@ -26,7 +27,7 @@ final class PermissionsServiceProviderTest extends TestCase
 
         $this->assertSame('.', Config::string('permissions.separator'));
         $this->assertSame('camel', Config::string('permissions.normalizer'));
-        $this->assertSame([], Config::array('permissions.types'));
+        $this->assertSame([], Config::array('permissions.subjects'));
     }
 
     public function test_the_config_is_publishable_under_its_tag(): void
