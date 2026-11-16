@@ -22,6 +22,6 @@ final class PermissionsServiceProvider extends ServiceProvider
 
     private static function configFile(): string
     {
-        return dirname(__DIR__).'/config/permissions.php';
+        return \dirname(__DIR__).'/config/permissions.php';
     }
 }

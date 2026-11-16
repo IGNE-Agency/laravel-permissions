@@ -33,7 +33,7 @@ final class PermissionsServiceProviderTest extends TestCase
     public function test_the_config_is_publishable_under_its_tag(): void
     {
         $this->assertSame(
-            [dirname(__DIR__).'/config/permissions.php' => app()->configPath('permissions.php')],
+            [\dirname(__DIR__).'/config/permissions.php' => app()->configPath('permissions.php')],
             ServiceProvider::pathsToPublish(PermissionsServiceProvider::class, 'permissions-config'),
         );
     }
