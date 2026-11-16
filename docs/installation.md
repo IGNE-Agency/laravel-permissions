@@ -35,6 +35,8 @@ Laravel discovers the service provider. The published `config/permissions.php` o
 |-----|---------|---------|---------|
 | `discover` | `[app_path()]` | Folders scanned for permission subjects | `[app_path(), base_path('modules')]` |
 | `subjects` | `[]` | Subjects outside those folders | `[\Vendor\Package\Comment::class]` |
+| `actions` | `PermissionAction::class` | The action enum whose cases every `UsesActions` subject gets | `PostAction::class` |
+| `spaces` | `null` | The space enum whose cases every `UsesSpaces` subject gets | `Space::class` |
 | `separator` | `':'` | Joins the segments of a name | `'.'` gives `admin.post.view` |
 | `normalizer` | `'camel'` | Casing of every segment: `camel`, `snake`, `kebab` or `studly` | `'snake'` gives `admin:blog_post:view_any` |
 | `prefix` | `null` | A first segment for every name | `'app'` gives `app:admin:post:view` |
@@ -42,7 +44,7 @@ Laravel discovers the service provider. The published `config/permissions.php` o
 | `requires_access` | `true` | Whether every name in a space needs the space's `access` too | `false` makes `access` an ordinary permission |
 
 A folder in `discover` that does not exist, an unknown normalizer or a `subjects` entry that is not a subject throws a `PermissionException`.
-So does an `implied_actions` entry that lists anything other than action enum cases.
+So does an `implied_actions` entry that lists anything other than action enum cases, an `actions` entry that is not an action enum, and a `spaces` entry that is not a space enum. A `UsesSpaces` subject without its own spaces throws while `spaces` is `null`.
 
 ## Versioning
 

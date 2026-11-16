@@ -11,6 +11,8 @@ use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Contracts\PermissionSubject;
 use Igne\Permissions\Contracts\SpaceEnum;
 use Igne\Permissions\Contracts\UsesActions;
+use Igne\Permissions\Contracts\UsesCustomActions;
+use Igne\Permissions\Contracts\UsesCustomSpaces;
 use Igne\Permissions\Contracts\UsesGroup;
 use Igne\Permissions\Contracts\UsesSpaces;
 use Igne\Permissions\Exceptions\PermissionException;
@@ -100,7 +102,8 @@ final readonly class Subject
     }
 
     /**
-     * The spaces the subject's class declares, before {@see FiltersPerSpace} narrows them.
+     * The spaces the subject's class declares, before {@see FiltersPerSpace} narrows them: its own
+     * list, every space, or none.
      *
      * @return list<SpaceEnum>
      */
@@ -108,7 +111,11 @@ final readonly class Subject
     {
         $type = $this->type();
 
-        return is_a($type, UsesSpaces::class, true) ? $type::spaces() : [];
+        return match (true) {
+            is_a($type, UsesCustomSpaces::class, true) => $type::spaces(),
+            is_a($type, UsesSpaces::class, true) => PermissionDefaults::spaces($type),
+            default => [],
+        };
     }
 
     /**
@@ -125,13 +132,19 @@ final readonly class Subject
     }
 
     /**
+     * The subject's own actions, the default actions, or none.
+     *
      * @return list<PermissionActionEnum>
      */
     public function actions(): array
     {
         $type = $this->type();
 
-        return is_a($type, UsesActions::class, true) ? $type::actions() : [];
+        return match (true) {
+            is_a($type, UsesCustomActions::class, true) => $type::actions(),
+            is_a($type, UsesActions::class, true) => PermissionDefaults::actions(),
+            default => [],
+        };
     }
 
     public function supports(PermissionActionEnum $action): bool

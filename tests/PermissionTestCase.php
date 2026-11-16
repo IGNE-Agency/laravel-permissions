@@ -8,6 +8,7 @@ use Igne\Permissions\Tests\Fixtures\TestExportReports;
 use Igne\Permissions\Tests\Fixtures\TestGuardPermission;
 use Igne\Permissions\Tests\Fixtures\TestPost;
 use Igne\Permissions\Tests\Fixtures\TestResourcePermission;
+use Igne\Permissions\Tests\Fixtures\TestSpace;
 use Illuminate\Support\Facades\Config;
 
 /**
@@ -32,6 +33,7 @@ abstract class PermissionTestCase extends TestCase
             'separator' => ':',
             'normalizer' => 'camel',
             'prefix' => null,
+            'spaces' => TestSpace::class,
             'implied_actions' => [],
             'requires_access' => false,
         ]);

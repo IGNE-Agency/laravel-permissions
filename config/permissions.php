@@ -31,6 +31,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default actions
+    |--------------------------------------------------------------------------
+    |
+    | The action enum whose cases every subject that implements
+    | Igne\Permissions\Contracts\UsesActions gets, unless it implements
+    | Igne\Permissions\Contracts\UsesCustomActions to list its own.
+    |
+    */
+    'actions' => PermissionAction::class,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Spaces
+    |--------------------------------------------------------------------------
+    |
+    | The app's space enum. Every subject that implements
+    | Igne\Permissions\Contracts\UsesSpaces is in all of its cases, unless it
+    | implements Igne\Permissions\Contracts\UsesCustomSpaces to list its
+    | own. Null means every subject with spaces lists its own.
+    |
+    */
+    'spaces' => null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Permission separator
     |--------------------------------------------------------------------------
     |

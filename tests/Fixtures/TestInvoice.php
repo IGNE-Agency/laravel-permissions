@@ -8,7 +8,7 @@ use Igne\Permissions\Concerns\HasPermissionKey;
 use Igne\Permissions\Contracts\ImpliesActions;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionSubject;
-use Igne\Permissions\Contracts\UsesActions;
+use Igne\Permissions\Contracts\UsesCustomActions;
 use Igne\Permissions\Contracts\UsesGroup;
 
 /**
@@ -16,7 +16,7 @@ use Igne\Permissions\Contracts\UsesGroup;
  * "billing:testInvoice:read".
  * Write implies read.
  */
-final class TestInvoice implements ImpliesActions, PermissionSubject, UsesActions, UsesGroup
+final class TestInvoice implements ImpliesActions, PermissionSubject, UsesCustomActions, UsesGroup
 {
     use HasPermissionKey;
 

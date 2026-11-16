@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Igne\Permissions\Tests;
 
 use Igne\Permissions\Contracts\SpaceEnum;
-use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\PermissionAction;
 use Igne\Permissions\Tests\Fixtures\TestGuardPermission;
 use Igne\Permissions\Tests\Fixtures\TestPost;
@@ -99,20 +98,16 @@ final class PermissionCheckTest extends SpatieTestCase
         $this->assertFalse(Gate::allows($this->articleViewPlaceholder()));
     }
 
-    public function test_a_user_without_the_contract_checks_concrete_names_but_not_the_placeholder(): void
+    public function test_a_user_without_the_contract_is_checked_in_the_spaces_it_has_access_to(): void
     {
-        $user = TestUserWithoutSpace::create([
-            'name' => 'Test user',
-            'email' => uniqid('user', true).'@example.test',
-            'password' => 'secret',
-        ]);
-        $user->givePermissionTo($this->adminArticleView());
+        $withAccess = $this->userWithoutSpace($this->adminArticleView(), permission()->in(TestSpace::ADMIN)->access());
+        $otherAccess = $this->userWithoutSpace($this->adminArticleView(), permission()->in(TestSpace::PORTAL)->access());
+        $withoutAccess = $this->userWithoutSpace($this->adminArticleView());
 
-        $this->assertTrue($user->can($this->adminArticleView()));
-
-        $this->expectException(PermissionException::class);
-
-        $user->can($this->articleViewPlaceholder());
+        $this->assertTrue($withAccess->can($this->articleViewPlaceholder()));
+        $this->assertFalse($otherAccess->can($this->articleViewPlaceholder()));
+        $this->assertFalse($withoutAccess->can($this->articleViewPlaceholder()));
+        $this->assertTrue($withoutAccess->can($this->adminArticleView()));
     }
 
     public function test_a_revoked_name_denies_the_placeholder(): void
@@ -193,6 +188,18 @@ final class PermissionCheckTest extends SpatieTestCase
     {
         $user = $this->user(...$permissions);
         $user->space = $space;
+
+        return $user;
+    }
+
+    private function userWithoutSpace(string ...$permissions): TestUserWithoutSpace
+    {
+        $user = TestUserWithoutSpace::create([
+            'name' => 'Test user',
+            'email' => uniqid('user', true).'@example.test',
+            'password' => 'secret',
+        ]);
+        $user->givePermissionTo(...$permissions);
 
         return $user;
     }

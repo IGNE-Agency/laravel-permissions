@@ -8,13 +8,13 @@ use Igne\Permissions\Concerns\ResolvesPermissions;
 use Igne\Permissions\Contracts\ImpliesActions;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
-use Igne\Permissions\Contracts\UsesActions;
+use Igne\Permissions\Contracts\UsesCustomActions;
 use Igne\Permissions\PermissionAction;
 
 /**
  * Misconfigured on purpose: write implies an action the enum does not list.
  */
-enum TestBrokenImplicationPermission: string implements ImpliesActions, PermissionEnum, UsesActions
+enum TestBrokenImplicationPermission: string implements ImpliesActions, PermissionEnum, UsesCustomActions
 {
     use ResolvesPermissions;
 

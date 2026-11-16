@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Igne\Permissions\Concerns;
 
 use Igne\Permissions\Contracts\PermissionActionEnum;
-use Igne\Permissions\Contracts\UsesActions;
-use Igne\Permissions\PermissionAction;
+use Igne\Permissions\Contracts\UsesCustomActions;
+use Igne\Permissions\PermissionDefaults;
 
 /**
- * Provides the package's default action set for a {@see UsesActions} enum. Use this trait to opt
- * into the default; declare your own actions() to use a different set.
+ * The default actions as actions(), for a {@see UsesCustomActions} subject whose list starts from
+ * them: define actions() and build on self::defaultActions().
  */
 trait UsesDefaultActions
 {
@@ -19,6 +19,14 @@ trait UsesDefaultActions
      */
     public static function actions(): array
     {
-        return PermissionAction::cases();
+        return self::defaultActions();
+    }
+
+    /**
+     * @return list<PermissionActionEnum>
+     */
+    protected static function defaultActions(): array
+    {
+        return PermissionDefaults::actions();
     }
 }

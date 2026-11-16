@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace Igne\Permissions\Tests;
 
 use Igne\Permissions\Exceptions\PermissionException;
+use Igne\Permissions\Subject;
+use Igne\Permissions\Tests\Fixtures\TestComment;
+use Igne\Permissions\Tests\Fixtures\TestCustomAction;
 use Igne\Permissions\Tests\Fixtures\TestGuardPermission;
+use Igne\Permissions\Tests\Fixtures\TestInvoice;
+use Igne\Permissions\Tests\Fixtures\TestNotePermission;
+use Igne\Permissions\Tests\Fixtures\TestPost;
 use Igne\Permissions\Tests\Fixtures\TestResourcePermission;
 use Igne\Permissions\Tests\Fixtures\TestSpace;
 use Illuminate\Support\Facades\Config;
@@ -105,5 +111,49 @@ final class PermissionConfigTest extends PermissionTestCase
         $this->expectExceptionMessage('Invalid permissions config [prefix]');
 
         permissions();
+    }
+
+    public function test_subjects_without_their_own_actions_get_the_configured_action_enum(): void
+    {
+        Config::set('permissions.actions', TestCustomAction::class);
+
+        $this->assertSame(TestCustomAction::cases(), Subject::ofClass(TestPost::class)->actions());
+        $this->assertSame(TestCustomAction::cases(), Subject::ofCase(TestNotePermission::NOTE)->actions());
+        $this->assertSame([TestCustomAction::READ, TestCustomAction::WRITE], Subject::ofClass(TestInvoice::class)->actions());
+    }
+
+    public function test_subjects_without_their_own_spaces_get_every_case_of_the_configured_space_enum(): void
+    {
+        $this->assertSame(TestSpace::cases(), Subject::ofClass(TestComment::class)->declaredSpaces());
+        $this->assertSame([TestSpace::ADMIN, TestSpace::PORTAL], Subject::ofClass(TestPost::class)->declaredSpaces());
+    }
+
+    public function test_subjects_without_their_own_spaces_throw_without_a_configured_space_enum(): void
+    {
+        Config::set('permissions.spaces', null);
+
+        $this->assertSame([TestSpace::ADMIN, TestSpace::PORTAL], Subject::ofClass(TestPost::class)->declaredSpaces());
+
+        $this->expectException(PermissionException::class);
+
+        Subject::ofClass(TestComment::class)->declaredSpaces();
+    }
+
+    public function test_an_actions_entry_that_is_not_an_action_enum_throws(): void
+    {
+        Config::set('permissions.actions', TestSpace::class);
+
+        $this->expectException(PermissionException::class);
+
+        Subject::ofClass(TestPost::class)->actions();
+    }
+
+    public function test_a_spaces_entry_that_is_not_a_space_enum_throws(): void
+    {
+        Config::set('permissions.spaces', TestCustomAction::class);
+
+        $this->expectException(PermissionException::class);
+
+        Subject::ofClass(TestComment::class)->declaredSpaces();
     }
 }
