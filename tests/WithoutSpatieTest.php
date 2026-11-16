@@ -8,11 +8,13 @@ use Igne\Permissions\AccessGuard;
 use Igne\Permissions\Contracts\ResolvesRolePermissions;
 use Igne\Permissions\Exceptions\ConflictingAccessException;
 use Igne\Permissions\Exceptions\PermissionException;
+use Igne\Permissions\PermissionAction;
 use Igne\Permissions\Tests\Fixtures\TestPlainUser;
 use Igne\Permissions\Tests\Fixtures\TestPost;
 use Igne\Permissions\Tests\Fixtures\TestSpace;
 use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -87,6 +89,21 @@ final class WithoutSpatieTest extends PermissionTestCase
 
         $holder->space = TestSpace::ADMIN;
         $this->assertFalse($holder->can(permission()->update(TestPost::class)));
+    }
+
+    public function test_the_gate_rules_apply(): void
+    {
+        Config::set('permissions.implied_actions', [PermissionAction::UPDATE->value => [PermissionAction::VIEW]]);
+        Config::set('permissions.requires_access', true);
+        $update = permission()->in(TestSpace::PORTAL)->update(TestPost::class);
+
+        $holder = $this->user($update, 'portal:access');
+        $holder->space = TestSpace::PORTAL;
+        $withoutAccess = $this->user($update);
+        $withoutAccess->space = TestSpace::PORTAL;
+
+        $this->assertTrue($holder->can(permission()->view(TestPost::class)));
+        $this->assertFalse($withoutAccess->can(permission()->update(TestPost::class)));
     }
 
     private function user(string ...$permissions): TestPlainUser

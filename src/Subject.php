@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Igne\Permissions;
 
 use Igne\Permissions\Contracts\FiltersPerSpace;
+use Igne\Permissions\Contracts\ImpliesActions;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Contracts\PermissionSubject;
@@ -143,6 +144,19 @@ final readonly class Subject
         $type = $this->type();
 
         return is_a($type, UsesGroup::class, true) ? $type::group() : null;
+    }
+
+    /**
+     * The actions a grant of the given action also grants, as the subject declares them through
+     * {@see ImpliesActions}; null when it does not, so the configured implications apply.
+     *
+     * @return list<PermissionActionEnum>|null
+     */
+    public function declaredImplications(PermissionActionEnum $action): ?array
+    {
+        $type = $this->type();
+
+        return is_a($type, ImpliesActions::class, true) ? $type::impliedActions($action) : null;
     }
 
     /**

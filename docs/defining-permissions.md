@@ -51,6 +51,7 @@ Every option is an interface on the subject, on a class and on an enum alike. Le
 | Spaces | `UsesSpaces`, `spaces()` returns `[Space::ADMIN, Space::PORTAL]` | `admin:post:view`, `portal:post:view` |
 | Group | `UsesGroup`, `group()` returns `'blog'` | `blog:post:view` |
 | Allowed per space | `FiltersPerSpace`, `allowedForSpace()` returns `false` for `Space::PORTAL` | `admin:post:view` only; see [allowed per space](#allowed-per-space) |
+| Own implied actions | `ImpliesActions`, `impliedActions()` | Names unchanged; see [implied actions](#implied-actions) |
 | Labels | `HasLabel`, `label()` and `description()` | Names unchanged; for admin screens |
 
 The config adds options for every name at once: a `prefix`, the `separator` and the `normalizer`. See [installation](installation.md#config-keys).
@@ -104,6 +105,25 @@ public static function allowedForSpace(SpaceEnum $space): array
 }
 ```
 
+### Spaces that require access
+
+By default every name in a space also needs the space's `access` permission: a user with `admin:post:view` but without `admin:access` is denied through the Gate, so removing `admin:access` closes the whole space at once.
+
+| Setting | Effect |
+|---------|--------|
+| `'requires_access' => true` in the config (the default) | Every space requires its `access` |
+| `'requires_access' => false` | No space requires it; `access` is one permission among the others |
+| The space enum implements `RequiresAccess` | Its own `spacesRequiringAccess()` decides for its spaces, whatever the config says |
+
+```php
+public static function spacesRequiringAccess(): array
+{
+    return [self::ADMIN];
+}
+```
+
+See [checking permissions](checking-permissions.md#rules-the-gate-applies).
+
 ## Actions
 
 `PermissionAction` is the default set: `viewAny`, `view`, `create`, `update`, `delete`, `restore`, `destroy`. Its values never change. An app's own set is a string-backed enum:
@@ -115,6 +135,33 @@ enum PostAction: string implements PermissionActionEnum
     case ARCHIVE = 'archive';
 }
 ```
+
+### Implied actions
+
+One action can grant others on the same subject in the same space. By default the config says update grants view and view grants viewAny:
+
+```php
+'implied_actions' => [
+    PermissionAction::UPDATE->value => [PermissionAction::VIEW],
+    PermissionAction::VIEW->value => [PermissionAction::VIEW_ANY],
+],
+```
+
+A user with `admin:post:update` then passes a Gate check of `admin:post:view` and, through the chain, `admin:post:viewAny`. The rule applies to every subject that lists both actions; a subject without `view` is skipped. Set `'implied_actions' => []` to turn it off.
+
+A subject that implements `ImpliesActions` replaces the config with its own rules:
+
+```php
+public static function impliedActions(PermissionActionEnum $action): array
+{
+    return match ($action) {
+        PostAction::ARCHIVE => [PostAction::PUBLISH],
+        default => [],
+    };
+}
+```
+
+Each action it names must be one of the subject's own `actions()`. Only the Gate applies implications; Spatie's direct methods see the stored names.
 
 ## Discovery
 

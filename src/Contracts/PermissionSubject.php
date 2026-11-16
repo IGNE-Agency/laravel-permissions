@@ -15,6 +15,7 @@ use Igne\Permissions\Concerns\HasPermissionKey;
  *
  * Opt in to a space prefix, an action suffix or a group segment by also implementing
  * {@see UsesSpaces}, {@see UsesActions} or {@see UsesGroup}.
+ * Implement {@see ImpliesActions} to let one action grant others.
  */
 interface PermissionSubject
 {

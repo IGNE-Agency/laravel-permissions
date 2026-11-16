@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Igne\Permissions\Tests;
 
+use Igne\Permissions\PermissionAction;
 use Igne\Permissions\PermissionsServiceProvider;
 use Igne\Permissions\SubjectDiscovery;
 use Illuminate\Support\Facades\Config;
@@ -18,6 +19,11 @@ final class PermissionsServiceProviderTest extends TestCase
         $this->assertSame(':', Config::string('permissions.separator'));
         $this->assertSame('camel', Config::string('permissions.normalizer'));
         $this->assertNull(Config::get('permissions.prefix'));
+        $this->assertSame(
+            ['update' => [PermissionAction::VIEW], 'view' => [PermissionAction::VIEW_ANY]],
+            Config::array('permissions.implied_actions'),
+        );
+        $this->assertTrue(Config::boolean('permissions.requires_access'));
     }
 
     public function test_app_config_wins_over_the_package_defaults(): void

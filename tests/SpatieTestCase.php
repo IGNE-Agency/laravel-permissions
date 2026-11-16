@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Igne\Permissions\Tests;
 
+use Igne\Permissions\Contracts\PermissionEnum;
+use Igne\Permissions\Contracts\PermissionSubject;
 use Igne\Permissions\Tests\Fixtures\TestUser;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Orchestra\Testbench\Attributes\WithConfig;
 use RuntimeException;
@@ -38,6 +41,18 @@ abstract class SpatieTestCase extends PermissionTestCase
 
         $this->loadLaravelMigrations();
         $this->migrateSpatieTables();
+
+        $this->seedPermissions();
+    }
+
+    /**
+     * Register these subjects next to the default fixtures and seed their names.
+     *
+     * @param  class-string<PermissionEnum|PermissionSubject>  ...$subjects
+     */
+    protected function registerSubjects(string ...$subjects): void
+    {
+        Config::set('permissions.subjects', [...Config::array('permissions.subjects'), ...$subjects]);
 
         $this->seedPermissions();
     }

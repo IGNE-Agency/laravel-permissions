@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Config;
 /**
  * Lists the fixture subjects instead of discovering them, so every test exercises the package
  * against the same known set: two enums, a model and an action class.
+ * The Gate rules start switched off; the tests of each rule switch it on.
  */
 abstract class PermissionTestCase extends TestCase
 {
@@ -31,6 +32,8 @@ abstract class PermissionTestCase extends TestCase
             'separator' => ':',
             'normalizer' => 'camel',
             'prefix' => null,
+            'implied_actions' => [],
+            'requires_access' => false,
         ]);
     }
 }
