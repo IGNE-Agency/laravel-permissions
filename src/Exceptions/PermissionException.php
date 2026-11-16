@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Igne\Permissions\Exceptions;
 
-use Igne\Permissions\Contracts\HasPermissionSpace;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\ResolvesRolePermissions;
 use Igne\Permissions\Contracts\SpaceEnum;
@@ -80,15 +79,6 @@ final class PermissionException extends LogicException
         return new self(\sprintf(
             'Role checks need a binding for [%s]: register spatie/laravel-permission, or bind the app\'s own role lookup in a service provider.',
             ResolvesRolePermissions::class,
-        ));
-    }
-
-    public static function missingPermissionSpace(object $user): self
-    {
-        return new self(\sprintf(
-            'Cannot check a permission built without in() for [%s]: the user model must implement %s, or the name must be built with in($space).',
-            $user::class,
-            HasPermissionSpace::class,
         ));
     }
 

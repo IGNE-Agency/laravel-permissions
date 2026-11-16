@@ -9,13 +9,13 @@ use Igne\Permissions\Concerns\UsesDefaultActions;
 use Igne\Permissions\Contracts\ImpliesActions;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
-use Igne\Permissions\Contracts\UsesActions;
+use Igne\Permissions\Contracts\UsesCustomActions;
 use Igne\Permissions\PermissionAction;
 
 /**
  * An enum without spaces whose update grants view: "note:update" implies "note:view".
  */
-enum TestNotePermission: string implements ImpliesActions, PermissionEnum, UsesActions
+enum TestNotePermission: string implements ImpliesActions, PermissionEnum, UsesCustomActions
 {
     use ResolvesPermissions;
     use UsesDefaultActions;

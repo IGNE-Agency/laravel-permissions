@@ -46,13 +46,17 @@ Every option is an interface on the subject, on a class and on an enum alike. Le
 | Option | Add to the subject | Names for `Post` |
 |--------|--------------------|------------------|
 | None | | `post` |
-| Default actions | `UsesActions` and `use UsesDefaultActions;` | `post:viewAny`, `post:view`, `post:create`, `post:update`, `post:delete`, `post:restore`, `post:destroy` |
-| Own actions | `UsesActions`, `actions()` returns `[PostAction::PUBLISH]` | `post:publish` |
-| Spaces | `UsesSpaces`, `spaces()` returns `[Space::ADMIN, Space::PORTAL]` | `admin:post:view`, `portal:post:view` |
+| Default actions | `UsesActions` | `post:viewAny`, `post:view`, `post:create`, `post:update`, `post:delete`, `post:restore`, `post:destroy` |
+| Own actions | `UsesCustomActions`, `actions()` returns `[PostAction::PUBLISH]` | `post:publish` |
+| Default actions and more | `UsesCustomActions` and `use UsesDefaultActions;`, `actions()` returns `[...self::defaultActions(), PostAction::PUBLISH]` | the default names and `post:publish` |
+| Every space | `UsesSpaces`, with the space enum in the `spaces` config key | `admin:post:view`, `portal:post:view` |
+| Own spaces | `UsesCustomSpaces`, `spaces()` returns `[Space::ADMIN]` | `admin:post:view` |
 | Group | `UsesGroup`, `group()` returns `'blog'` | `blog:post:view` |
 | Allowed per space | `FiltersPerSpace`, `allowedForSpace()` returns `false` for `Space::PORTAL` | `admin:post:view` only; see [allowed per space](#allowed-per-space) |
 | Own implied actions | `ImpliesActions`, `impliedActions()` | Names unchanged; see [implied actions](#implied-actions) |
 | Labels | `HasLabel`, `label()` and `description()` | Names unchanged; for admin screens |
+
+`UsesActions` and `UsesSpaces` need no methods. The default actions are the cases of the action enum in the `actions` config key, `PermissionAction` unless the app changes it. Every space is every case of the enum in the `spaces` config key. A subject only writes `actions()` or `spaces()` when it implements `UsesCustomActions` or `UsesCustomSpaces`. A subject with `UsesSpaces` but without its own spaces throws a `PermissionException` while `spaces` is `null`.
 
 The config adds options for every name at once: a `prefix`, the `separator` and the `normalizer`. See [installation](installation.md#config-keys).
 
@@ -74,6 +78,12 @@ enum Space: string implements SpaceEnum
 ```
 
 `spacePrefix()` is the first segment of every name in the space. Every space a subject declares gets `admin:access`, `portal:access`. Spaces are optional: without `UsesSpaces` a subject's names have no space segment and no `access` permission.
+
+Name the enum in the config so `UsesSpaces` subjects get all of its spaces:
+
+```php
+'spaces' => Space::class,
+```
 
 ### Allowed per space
 

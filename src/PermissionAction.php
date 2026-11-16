@@ -9,7 +9,8 @@ use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\UsesActions;
 
 /**
- * The default action set for every {@see UsesActions} enum that does not define its own actions().
+ * The default action set: the default of the "actions" config key, which every {@see UsesActions}
+ * subject gets unless it lists its own.
  *
  * The values are stored data in every installing app; they never change.
  */

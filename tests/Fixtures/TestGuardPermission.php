@@ -23,14 +23,6 @@ enum TestGuardPermission: string implements FiltersPerSpace, PermissionEnum, Use
     case RUN_REPORTS = 'runReports';
 
     /**
-     * @return list<SpaceEnum>
-     */
-    public static function spaces(): array
-    {
-        return TestSpace::cases();
-    }
-
-    /**
      * @return list<PermissionEnum>
      */
     public static function allowedForSpace(SpaceEnum $space): array

@@ -21,14 +21,10 @@ php artisan vendor:publish --tag=permissions-config
 final class Post extends Model implements PermissionSubject, UsesActions, UsesSpaces
 {
     use HasPermissionKey;
-    use UsesDefaultActions;
-
-    public static function spaces(): array
-    {
-        return [Space::ADMIN];
-    }
 }
 ```
+
+With `'spaces' => Space::class` in the config, `Post` gets the default actions in every space.
 
 ```php
 permission()->in(Space::ADMIN)->update(Post::class);   // 'admin:post:update'

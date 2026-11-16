@@ -7,15 +7,14 @@ namespace Igne\Permissions\Tests\Fixtures;
 use Igne\Permissions\Concerns\ResolvesPermissions;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
-use Igne\Permissions\Contracts\SpaceEnum;
-use Igne\Permissions\Contracts\UsesActions;
+use Igne\Permissions\Contracts\UsesCustomActions;
 use Igne\Permissions\Contracts\UsesSpaces;
 
 /**
  * A space-using enum with an app-defined action set and no case filter: every case is allowed in
  * every space.
  */
-enum TestReportPermission: string implements PermissionEnum, UsesActions, UsesSpaces
+enum TestReportPermission: string implements PermissionEnum, UsesCustomActions, UsesSpaces
 {
     use ResolvesPermissions;
 
@@ -27,13 +26,5 @@ enum TestReportPermission: string implements PermissionEnum, UsesActions, UsesSp
     public static function actions(): array
     {
         return TestCustomAction::cases();
-    }
-
-    /**
-     * @return list<SpaceEnum>
-     */
-    public static function spaces(): array
-    {
-        return TestSpace::cases();
     }
 }

@@ -15,7 +15,7 @@ public function update(User $user, Post $post): bool
 
 ## The user's space
 
-The user model tells the Gate its space, or several:
+By default a user is checked in every space whose `access` permission they hold. With Spatie that comes from their roles, so the user model needs nothing. When the app decides the spaces differently, the user model names them:
 
 ```php
 final class User extends Authenticatable implements HasPermissionSpace
@@ -29,7 +29,7 @@ final class User extends Authenticatable implements HasPermissionSpace
 }
 ```
 
-With several spaces, `{space}:post:update` is checked as `admin:post:update` and as `portal:post:update`, and passes when either passes. How a user's spaces are decided is the app's rule: a column, a relation, the spaces whose `access` they hold. `permissionSpace()` must not check a name built without `in()`, because resolving that name calls it again.
+With several spaces, `{space}:post:update` is checked as `admin:post:update` and as `portal:post:update`, and passes when either passes. `permissionSpace()` must not check a name built without `in()`, because resolving that name calls it again.
 
 ## Entry points
 
@@ -80,7 +80,7 @@ In an app on Spatie: Spatie caches permissions for 24 hours and flushes the cach
 
 | Situation | Result |
 |-----------|--------|
-| The checked user does not implement `HasPermissionSpace` | `PermissionException` |
+| The checked user holds no space's `access` and does not implement `HasPermissionSpace` | Denied |
 | A guest | Denied, 403 from the middlewares |
 | The resolved name was never seeded | Denied |
 | With Spatie, a placeholder name in one of its direct methods | Spatie's `PermissionDoesNotExist` |

@@ -17,6 +17,8 @@ final class PermissionsServiceProviderTest extends TestCase
         $this->assertSame([app_path()], Config::array('permissions.discover'));
         $this->assertSame([], Config::array('permissions.subjects'));
         $this->assertSame(':', Config::string('permissions.separator'));
+        $this->assertSame(PermissionAction::class, Config::get('permissions.actions'));
+        $this->assertNull(Config::get('permissions.spaces'));
         $this->assertSame('camel', Config::string('permissions.normalizer'));
         $this->assertNull(Config::get('permissions.prefix'));
         $this->assertSame(

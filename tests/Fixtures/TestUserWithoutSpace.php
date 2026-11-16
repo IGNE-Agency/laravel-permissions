@@ -8,9 +8,9 @@ use Illuminate\Foundation\Auth\User;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
- * A Spatie-enabled user that does not implement HasPermissionSpace, standing in for an app that
- * checks a name built without in() before adopting the contract. No auth guard names this model,
- * so Spatie is told its guard.
+ * A Spatie-enabled user that does not implement HasPermissionSpace: a name built without in() is
+ * checked in the spaces whose access it holds. No auth guard names this model, so Spatie is told
+ * its guard.
  */
 final class TestUserWithoutSpace extends User
 {
