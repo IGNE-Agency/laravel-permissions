@@ -4,7 +4,20 @@
 
 - PHP 8.4
 - Laravel 12 or 13
-- spatie/laravel-permission 7 or 8, installed and migrated in the app
+- Optional: spatie/laravel-permission 7 or 8, installed and migrated in the app
+
+## Storing and granting
+
+The package builds names and lists; it stores and grants nothing. Whatever answers `$user->can($name)` in the app receives the names:
+
+- **With spatie/laravel-permission**, the app seeds the names as Spatie permissions and grants them through Spatie's roles. Nothing else needs setting up.
+- **Without it**, the app stores the names its own way and grants them in a `Gate::before` callback:
+
+```php
+Gate::before(fn (User $user, string $ability): ?bool => $user->holdsPermission($ability) ? true : null);
+```
+
+Return `null` rather than `false` for a name the user does not hold, so the Gate goes on to the policies.
 
 ## Install
 

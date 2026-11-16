@@ -1,6 +1,6 @@
 {
     "name": "igne-agency/laravel-permissions",
-    "description": "Permission names, lists and checks for the models, action classes and enums of a Laravel app, on top of spatie/laravel-permission.",
+    "description": "Permission names, lists and checks for the models, action classes and enums of a Laravel app, with or without spatie/laravel-permission.",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -17,14 +17,18 @@
     "require": {
         "php": "^8.4",
         "illuminate/contracts": "^12.0|^13.0",
-        "illuminate/support": "^12.0|^13.0",
-        "spatie/laravel-permission": "^7.0|^8.0"
+        "illuminate/database": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0"
     },
     "require-dev": {
         "larastan/larastan": "^3.9",
         "laravel/pint": "^1.20",
         "orchestra/testbench": "^10.0|^11.0",
-        "phpunit/phpunit": "^11.5|^12.0"
+        "phpunit/phpunit": "^11.5|^12.0",
+        "spatie/laravel-permission": "^7.0|^8.0"
+    },
+    "suggest": {
+        "spatie/laravel-permission": "Stores and grants the permission names (^7.0|^8.0), and powers the access guard's role checks"
     },
     "autoload": {
         "psr-4": {
