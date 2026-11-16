@@ -17,6 +17,7 @@ use Traversable;
 /**
  * Immutable list builder over one or more scopes: the spaces given to in(), or without in() the
  * subjects that use no spaces plus every space.
+ * Lists never carry the space placeholder.
  *
  * only() and except() are recorded in order and replayed per scope:
  *

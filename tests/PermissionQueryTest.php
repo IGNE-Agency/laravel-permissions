@@ -7,6 +7,7 @@ namespace Igne\Permissions\Tests;
 use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\PermissionAction;
 use Igne\Permissions\PermissionQuery;
+use Igne\Permissions\Permissions;
 use Igne\Permissions\Tests\Fixtures\TestCustomAction;
 use Igne\Permissions\Tests\Fixtures\TestExportReports;
 use Igne\Permissions\Tests\Fixtures\TestGuardPermission;
@@ -222,6 +223,13 @@ final class PermissionQueryTest extends PermissionTestCase
         }
 
         $this->assertSame($joined, permissions()->except(TestGuardPermission::RUN_REPORTS)->names());
+    }
+
+    public function test_lists_never_carry_the_space_placeholder(): void
+    {
+        foreach ([...permissions()->all(), ...permissions()->only(PermissionAction::VIEW), ...permissions()->except(TestPost::class)] as $name) {
+            $this->assertStringNotContainsString(Permissions::SPACE_PLACEHOLDER, $name);
+        }
     }
 
     public function test_the_query_is_iterable_countable_and_immutable(): void

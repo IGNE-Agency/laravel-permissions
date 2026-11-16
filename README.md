@@ -32,6 +32,7 @@ final class Post extends Model implements PermissionSubject, UsesActions, UsesSp
 
 ```php
 permission()->in(Space::ADMIN)->update(Post::class);   // 'admin:post:update'
+$user->can(permission()->update($post));               // the Gate fills in the user's space
 permissions()->in(Space::ADMIN)->names();              // every name in the space, for a role
 permissions()->all();                                  // every name, for the seeder
 ```
@@ -42,4 +43,5 @@ permissions()->all();                                  // every name, for the se
 - [Defining permissions](docs/defining-permissions.md): subjects, every option they can opt into, discovery, spaces and actions.
 - [Building names](docs/building-names.md): `permission()` for one name, and what throws.
 - [Permission lists](docs/permission-lists.md): `permissions()` for lists, every selection form, and handing a list to a role.
+- [Checking permissions](docs/checking-permissions.md): checks through the Gate, the user's space, entry points and what Spatie's direct methods need.
 - [Access guard](docs/access-guard.md): spaces whose access excludes each other.

@@ -9,6 +9,8 @@ use Igne\Permissions\Contracts\ResolvesRolePermissions;
 use Igne\Permissions\Exceptions\ConflictingAccessException;
 use Igne\Permissions\Exceptions\PermissionException;
 use Igne\Permissions\Tests\Fixtures\TestPlainUser;
+use Igne\Permissions\Tests\Fixtures\TestPost;
+use Igne\Permissions\Tests\Fixtures\TestSpace;
 use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
@@ -74,6 +76,17 @@ final class WithoutSpatieTest extends PermissionTestCase
 
         $this->assertTrue($this->guard()->wouldRoleConflict($user, ['guest']));
         $this->assertFalse($this->guard()->wouldRoleConflict($user, ['editor']));
+    }
+
+    public function test_a_name_without_in_resolves_the_users_space(): void
+    {
+        $holder = $this->user(permission()->in(TestSpace::PORTAL)->update(TestPost::class));
+
+        $holder->space = TestSpace::PORTAL;
+        $this->assertTrue($holder->can(permission()->update(TestPost::class)));
+
+        $holder->space = TestSpace::ADMIN;
+        $this->assertFalse($holder->can(permission()->update(TestPost::class)));
     }
 
     private function user(string ...$permissions): TestPlainUser

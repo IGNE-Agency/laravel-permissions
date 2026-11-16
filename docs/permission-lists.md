@@ -24,6 +24,7 @@ Each space also has its `access` permission: `admin:access` and `portal:access`.
 | `permissions()->in([Space::ADMIN, Space::PORTAL])->names()` | Every `admin:` name, then every `portal:` name |
 
 `in()` returns a query. A query never changes: every call below returns a new one. `names()` renders it as a list of strings, and a query can also be counted and looped over.
+Lists never contain the `{space}` placeholder, so every name can be seeded.
 
 ## Selections
 
