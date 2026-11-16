@@ -42,3 +42,4 @@ permissions()->all();                                  // every name, for the se
 - [Defining permissions](docs/defining-permissions.md): subjects, every option they can opt into, discovery, spaces and actions.
 - [Building names](docs/building-names.md): `permission()` for one name, and what throws.
 - [Permission lists](docs/permission-lists.md): `permissions()` for lists, every selection form, and handing a list to a role.
+- [Access guard](docs/access-guard.md): spaces whose access excludes each other.

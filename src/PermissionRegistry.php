@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Igne\Permissions;
 
+use Igne\Permissions\Contracts\HasExclusiveAccess;
 use Igne\Permissions\Contracts\PermissionActionEnum;
 use Igne\Permissions\Contracts\PermissionEnum;
 use Igne\Permissions\Contracts\PermissionSubject;
@@ -181,6 +182,19 @@ final class PermissionRegistry
     public function spaces(): array
     {
         return self::distinctSpaces(collect($this->subjects)->flatMap(static fn (Subject $subject): array => $subject->declaredSpaces()));
+    }
+
+    /**
+     * The spaces whose access permissions exclude each other, collected from the space enums that
+     * implement {@see HasExclusiveAccess}.
+     *
+     * @return list<SpaceEnum>
+     */
+    public function exclusiveSpaces(): array
+    {
+        return self::distinctSpaces(collect($this->spaces())
+            ->filter(static fn (SpaceEnum $space): bool => $space instanceof HasExclusiveAccess)
+            ->flatMap(static fn (HasExclusiveAccess $space): array => $space::exclusiveAccessSpaces()));
     }
 
     /**

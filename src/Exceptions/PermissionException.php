@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Igne\Permissions\Exceptions;
 
 use Igne\Permissions\Contracts\PermissionActionEnum;
+use Igne\Permissions\Contracts\ResolvesRolePermissions;
 use Igne\Permissions\Contracts\SpaceEnum;
 use Igne\Permissions\Subject;
 use LogicException;
@@ -71,5 +72,13 @@ final class PermissionException extends LogicException
     public static function invalidConfig(string $key, string $detail): self
     {
         return new self(\sprintf('Invalid permissions config [%s]: %s.', $key, $detail));
+    }
+
+    public static function missingRolePermissions(): self
+    {
+        return new self(\sprintf(
+            'Role checks need a binding for [%s]: register spatie/laravel-permission, or bind the app\'s own role lookup in a service provider.',
+            ResolvesRolePermissions::class,
+        ));
     }
 }

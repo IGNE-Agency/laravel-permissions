@@ -18,6 +18,7 @@ Gate::before(fn (User $user, string $ability): ?bool => $user->holdsPermission($
 ```
 
 Return `null` rather than `false` for a name the user does not hold, so the Gate goes on to the policies.
+The role checks of the [access guard](access-guard.md#role-checks) also need a role lookup.
 
 ## Install
 
